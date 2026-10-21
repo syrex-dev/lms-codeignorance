@@ -100,6 +100,7 @@ async function runTests() {
   const wrongVerify = await verifyOtpCode({
     challengeId: otpChallenge.challengeId,
     code: "000000",
+    purpose: OtpPurpose.FIRST_ACTIVATION,
   });
   if (wrongVerify.success) throw new Error("❌ Kode salah tidak boleh berhasil diverifikasi!");
 
@@ -107,6 +108,7 @@ async function runTests() {
   const correctVerify = await verifyOtpCode({
     challengeId: otpChallenge.challengeId,
     code: outboxEntry.code,
+    purpose: OtpPurpose.FIRST_ACTIVATION,
   });
   if (!correctVerify.success || !correctVerify.verificationToken) {
     throw new Error("❌ Verifikasi kode OTP valid gagal!");
@@ -116,6 +118,7 @@ async function runTests() {
   const reuseVerify = await verifyOtpCode({
     challengeId: otpChallenge.challengeId,
     code: outboxEntry.code,
+    purpose: OtpPurpose.FIRST_ACTIVATION,
   });
   if (reuseVerify.success) throw new Error("❌ OTP tidak boleh dapat digunakan kembali (sekali pakai)!");
 
@@ -292,7 +295,7 @@ async function runTests() {
     slug: testTrialSlug,
     type: "UNIVERSITY",
     adminFullName: "Dr. Rahmat Hidayat",
-    adminPhoneE164: "+6281299990002",
+    adminPhone: "+6281299990002",
     adminPassword: "PasswordTrial123!",
   });
 

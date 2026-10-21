@@ -18,7 +18,7 @@ export async function POST(
       return NextResponse.json({ error: "Sesi tidak valid." }, { status: 401 });
     }
 
-    const adminRole = session.user.role;
+    const adminRole = (session.user as any).activeRole || (session.user as any).role;
     if (adminRole !== "INSTITUTION_ADMIN" && adminRole !== "SUPER_ADMIN") {
       return NextResponse.json(
         { error: "Akses ditolak: Hanya Admin Institusi yang berhak mereset akses pengguna." },
@@ -44,10 +44,10 @@ export async function POST(
     }
 
     // Ambil target user dan pastikan berada pada tenant yang sama (tenant isolation)
-    const targetUser = await prisma.user.findFirst({
+    const targetUser: any = await prisma.user.findFirst({
       where: {
         id: targetUserId,
-        institutionId: session.user.activeInstitutionId,
+        institutionId: session.user.activeInstitutionId!,
       },
       include: {
         identifiers: true,
@@ -64,7 +64,7 @@ export async function POST(
 
     // Ambil identifier utama (NIM/NIS/NIP)
     const primaryIdent = targetUser.identifiers.find(
-      (i) => i.type === "INSTITUTION_ID" || i.type === "APPLICANT_NO"
+      (i: any) => i.type === "INSTITUTION_ID" || i.type === "APPLICANT_NO"
     ) || targetUser.identifiers[0];
 
     const userRawId = primaryIdent?.value || targetUser.id.substring(0, 8);

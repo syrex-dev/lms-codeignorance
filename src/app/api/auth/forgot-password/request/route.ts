@@ -63,7 +63,7 @@ export async function POST(req: Request) {
 
         if (result.success && result.challengeId) {
           challengeId = result.challengeId;
-          destinationMasked = result.destinationMasked;
+          destinationMasked = result.destinationMasked || "+62 8**-****-****";
         }
       }
     }

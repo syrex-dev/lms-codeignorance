@@ -178,7 +178,7 @@ export async function convertApplicantToStudent({
       },
     });
 
-    // D. Update Membership: Jadikan Membership APPLICANT ARCHIVED, Tambahkan Membership STUDENT ACTIVE
+    // D. Update Membership: Jadikan Membership APPLICANT INACTIVE, Tambahkan Membership STUDENT ACTIVE
     await tx.membership.updateMany({
       where: {
         userId: user.id,
@@ -186,7 +186,7 @@ export async function convertApplicantToStudent({
         role: UserRole.APPLICANT,
       },
       data: {
-        status: MembershipStatus.ARCHIVED,
+        status: MembershipStatus.INACTIVE,
       },
     });
 
@@ -223,7 +223,6 @@ export async function convertApplicantToStudent({
       where: { id: applicant.id },
       data: {
         status: ApplicantStatus.CONVERTED,
-        convertedAt: new Date(),
       },
     });
 
@@ -231,9 +230,9 @@ export async function convertApplicantToStudent({
     if (classCourseId) {
       await tx.classEnrollment.upsert({
         where: {
-          classCourseId_userId: {
+          classCourseId_studentUserId: {
             classCourseId,
-            userId: user.id,
+            studentUserId: user.id,
           },
         },
         update: {
@@ -241,7 +240,7 @@ export async function convertApplicantToStudent({
         },
         create: {
           classCourseId,
-          userId: user.id,
+          studentUserId: user.id,
           status: "ACTIVE",
         },
       });

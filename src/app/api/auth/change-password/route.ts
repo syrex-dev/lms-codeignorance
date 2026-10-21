@@ -89,11 +89,10 @@ export async function POST(req: Request) {
 
     // 3. Validasi Kebijakan Password Baru
     const validation = await validateNewPassword(newPassword, {
-      id: user.id,
+      userId: user.id,
       fullName: user.fullName,
       birthDate: user.birthDate,
-      phoneE164: user.phoneE164,
-      recentHashes: user.passwordHistories.map((h) => h.passwordHash),
+      phone: user.phoneE164 || undefined,
     });
 
     if (!validation.isValid) {
@@ -124,8 +123,7 @@ export async function POST(req: Request) {
         institutionId: user.institutionId,
         userId: user.id,
         title: "Keamanan Akun: Password Diubah",
-        content: "Password akun Anda telah berhasil diubah. Seluruh sesi login lainnya telah dikeluarkan secara otomatis.",
-        type: "SYSTEM",
+        message: "Password akun Anda telah berhasil diubah. Seluruh sesi login lainnya telah dikeluarkan secara otomatis.",
       },
     });
 

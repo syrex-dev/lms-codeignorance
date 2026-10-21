@@ -90,7 +90,7 @@ export async function checkLimit(
   });
 
   if (!institution) {
-    return { isAllowed: false, maxAllowed: 0, current: 0, message: "Institusi tidak ditemukan." };
+    return { isAllowed: false, allowed: false, maxAllowed: 0, current: 0, message: "Institusi tidak ditemukan." };
   }
 
   const plan = institution.plan;

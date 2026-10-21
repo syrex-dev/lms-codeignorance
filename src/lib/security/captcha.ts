@@ -14,7 +14,7 @@ export interface CaptchaVerifier {
  * Menerima token mock atau lolos otomatis saat development.
  */
 export class MockCaptchaVerifier implements CaptchaVerifier {
-  async verify(token?: string): Promise<CaptchaVerifyResult> {
+  async verify(token?: string, remoteIp?: string): Promise<CaptchaVerifyResult> {
     if (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") {
       return { success: true };
     }

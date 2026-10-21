@@ -253,6 +253,7 @@ async function runPhase1eTestSuite() {
   const verifyRes1 = await verifyOtpCode({
     challengeId: challenge1.challengeId!,
     code: outbox1!.code,
+    purpose: OtpPurpose.FIRST_ACTIVATION,
     expectedDestinationE164: sharedPhone,
   });
   assert(verifyRes1.success === true, "Verifikasi anak 1 harus berhasil.");

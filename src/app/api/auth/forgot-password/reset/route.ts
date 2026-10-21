@@ -51,11 +51,10 @@ export async function POST(req: Request) {
 
     // Validasi kebijakan password ketat
     const passwordCheck = await validateNewPassword(newPassword, {
-      id: user.id,
+      userId: user.id,
       fullName: user.fullName,
       birthDate: user.birthDate,
-      phoneE164: user.phoneE164,
-      recentHashes: user.passwordHistories.map((h) => h.passwordHash),
+      phone: user.phoneE164 || undefined,
     });
 
     if (!passwordCheck.isValid) {

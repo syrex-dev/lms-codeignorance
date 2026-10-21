@@ -293,3 +293,45 @@ export async function verifyOtpCode(params: VerifyOtpParams): Promise<VerifyOtpR
     message: "Verifikasi berhasil.",
   };
 }
+
+/**
+ * Konsumsi dan validasi token verifikasi sekali pakai
+ */
+export async function consumeVerificationToken(
+  token: string,
+  purpose: OtpPurpose | string
+): Promise<{
+  isValid: boolean;
+  destinationE164?: string;
+  userId?: string | null;
+  institutionId?: string | null;
+}> {
+  const challenge = await prisma.otpChallenge.findFirst({
+    where: {
+      verificationToken: token,
+      purpose: purpose as OtpPurpose,
+      verificationTokenExpiresAt: { gt: new Date() },
+    },
+  });
+
+  if (!challenge) {
+    return { isValid: false };
+  }
+
+  // Invalidate token after consumption (one-time use)
+  await prisma.otpChallenge.update({
+    where: { id: challenge.id },
+    data: {
+      verificationToken: null,
+      verificationTokenExpiresAt: null,
+    },
+  });
+
+  return {
+    isValid: true,
+    destinationE164: challenge.destinationE164,
+    userId: challenge.userId,
+    institutionId: challenge.institutionId,
+  };
+}
+

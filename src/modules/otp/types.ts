@@ -19,6 +19,7 @@ export interface SendOtpResult {
   channel?: OtpChannel;
   expiresAt?: Date;
   cooldownSeconds?: number;
+  warning?: string;
   error?: string;
 }
 
@@ -26,6 +27,7 @@ export interface VerifyOtpParams {
   challengeId: string;
   code: string;
   purpose: OtpPurpose;
+  expectedDestinationE164?: string;
   ipAddress?: string;
 }
 
@@ -36,5 +38,7 @@ export interface VerifyOtpResult {
   userId?: string | null;
   institutionId?: string | null;
   attemptsRemaining?: number;
+  remainingAttempts?: number;
+  message?: string;
   error?: string;
 }

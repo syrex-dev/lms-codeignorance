@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { verifyOtpCode } from "@/modules/otp/otp-service";
+import { OtpPurpose } from "@prisma/client";
 import crypto from "crypto";
 
 export async function POST(req: Request) {
@@ -26,6 +27,7 @@ export async function POST(req: Request) {
     const verifyResult = await verifyOtpCode({
       challengeId,
       code,
+      purpose: OtpPurpose.PLATFORM_LOGIN,
       expectedDestinationE164: platformUser.phoneE164 || undefined,
     });
 

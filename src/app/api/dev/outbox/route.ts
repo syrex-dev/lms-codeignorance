@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 
 export async function GET() {
-  if (process.env.NODE_ENV === "production" && process.env.DEV_OTP_OUTBOX !== "true") {
-    return NextResponse.json({ error: "Dev outbox disabled in production." }, { status: 403 });
+  // Hanya aktif jika bukan produksi DAN flag DEV_OTP_OUTBOX tidak dimatikan
+  const isProd = process.env.NODE_ENV === "production";
+  const isFlagEnabled = process.env.DEV_OTP_OUTBOX !== "false";
+
+  if (isProd || !isFlagEnabled) {
+    return NextResponse.json({ error: "Not Found" }, { status: 404 });
   }
 
   const messages = await prisma.devOutbox.findMany({
@@ -15,8 +19,11 @@ export async function GET() {
 }
 
 export async function DELETE() {
-  if (process.env.NODE_ENV === "production" && process.env.DEV_OTP_OUTBOX !== "true") {
-    return NextResponse.json({ error: "Dev outbox disabled in production." }, { status: 403 });
+  const isProd = process.env.NODE_ENV === "production";
+  const isFlagEnabled = process.env.DEV_OTP_OUTBOX !== "false";
+
+  if (isProd || !isFlagEnabled) {
+    return NextResponse.json({ error: "Not Found" }, { status: 404 });
   }
 
   await prisma.devOutbox.deleteMany();

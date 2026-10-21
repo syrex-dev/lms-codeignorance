@@ -47,30 +47,41 @@ Learning Management System (LMS) modern berbasis **Modular Monolith** yang diran
 
 ---
 
-## 👥 Akun Demo Bawaan
+## 👥 Akun Demo Bawaan & Portal Akses
 
-Setiap akun pengguna awal menggunakan format login **ID resmi** (atau email `{ID}@{domain}`) dengan **Password Default = ID itu sendiri**. Saat login pertama kali, sistem secara otomatis memaksa pengguna mengganti password baru sebelum mengakses halaman lain.
+Sistem menggunakan format login **ID resmi** atau **Email Login Virtual** `{ID}@{emailDomain}` dengan **Password Default = ID itu sendiri**.
+Akun baru berstatus `PENDING_ACTIVATION` dan secara otomatis dialihkan ke halaman **Aktivasi Pertama (`/[tenant]/onboarding`)** untuk verifikasi OTP via WhatsApp/SMS dan pembuatan password baru.
+
+> [!TIP]
+> **Simulasi OTP Lokal**: Buka `http://localhost:3000/dev/outbox` untuk melihat kode OTP WhatsApp & SMS yang terkirim saat pengujian lokal.
 
 ### 1. Perguruan Tinggi: Politeknik Mitra Indonesia (`/poltekmi/login`)
-- **Mahasiswa Terkonversi (Multi-Identitas)**: Cindy Permata
-  - *Login via*: Email pribadi `cindy.permata@gmail.com` ATAU NIM `24TI0003` ATAU email institusi `24ti0003@poltekmi.ac.id` ATAU No. Registrasi `PMB-2025-001`
-  - *Password*: `PasswordPendaftar123!` (Password pendaftar asli, **tidak dipaksa ganti password**)
-- **Mahasiswa Import Manual**: ID `24TI0001` • Password Awal: `24TI0001` (Memiliki Beasiswa 50% UKT & SponsorInvoice)
-- **Calon Pendaftar (Fee Waiver KIP)**: Email `doni.kip@gmail.com` • Password: `DoniPass123!` (Invoice berstatus `PENDING_WAIVER`)
+- **Mahasiswa Baru (Import - Perlu Aktivasi)**:
+  - *Login*: NIM `2301010011` atau Email `2301010011@poltekmi.ac.id`
+  - *Password Awal*: `2301010011` (Status: `PENDING_ACTIVATION`, Tanggal Lahir: `2004-05-15`)
+  - *Catatan*: Memiliki beasiswa 50% UKT & tagihan piutang SponsorInvoice
+- **Mahasiswa Terkonversi**: Cindy Permata
+  - *Login*: NIM `2301010012` atau Email `2301010012@poltekmi.ac.id` atau `cindy.permata@gmail.com`
+  - *Password*: `PasswordPendaftar123!` (Status: `ACTIVE`, tidak perlu aktivasi ulang)
+- **Calon Pendaftar PMB (Fee Waiver KIP)**:
+  - *Login*: Email `doni.kip@gmail.com` atau No. Reg `PMB-2025-002` • Password: `DoniPass123!`
 - **Staf Keuangan**: ID `KEU001` • Password Awal: `KEU001`
 - **Panitia Beasiswa**: ID `BEA001` • Password Awal: `BEA001`
 - **Dosen**: ID `DSN001` • Password Awal: `DSN001`
 - **Admin Kampus**: ID `ADM001` • Password Awal: `ADM001`
-- *Domain Resmi*: `poltekmi.ac.id`
 
 ### 2. Sekolah: SMA Negeri 1 Prestasi (`/sman1/login`)
-- **Siswa**: ID `24MIPA0001` • Password Awal: `24MIPA0001`
+- **Siswa (Perlu Aktivasi)**:
+  - *Login*: NIS `2401010001` atau Email `2401010001@sman1jakarta.sch.id`
+  - *Password Awal*: `2401010001` (Status: `PENDING_ACTIVATION`, HP Wali: `+6281234567006`)
 - **Guru**: ID `GRU001` • Password Awal: `GRU001`
 - **Admin Tata Usaha**: ID `STF001` • Password Awal: `STF001`
-- *Domain Resmi*: `sman1jakarta.sch.id`
 
-### 3. Super Administrator Platform
-- **Email**: `admin@platform.lms` • Password: `admin123`
+### 3. Konsol Platform SaaS & Pendaftaran Mandiri
+- **Pendaftaran Tenant Mandiri (Trial 14 Hari)**: [http://localhost:3000/signup](http://localhost:3000/signup)
+- **Konsol Manajemen Platform**: [http://localhost:3000/platform](http://localhost:3000/platform)
+- **Simulasi Dev Outbox (OTP Viewer)**: [http://localhost:3000/dev/outbox](http://localhost:3000/dev/outbox)
+- **Platform Super Admin**: Email `superadmin@platform.system` • Password: `PlatformAdminPass123!`
 
 ---
 
@@ -94,20 +105,22 @@ Sistem secara otomatis menyesuaikan kosakata dan tampilan antarmuka sesuai tipe 
 
 ```
 src/
-├── app/                  # Next.js App Router (Auth, Dashboard, Admission routes)
+├── app/                  # Next.js App Router (Auth, Onboarding, Platform, Signup, Dashboard)
 ├── components/           # Reusable UI components & providers
 ├── lib/
-│   ├── auth/             # Konfigurasi Auth.js Credentials Provider
+│   ├── auth/             # Konfigurasi Auth.js Credentials Provider (Tenant-scoped)
 │   ├── db/               # Prisma Client instance
 │   ├── i18n/             # Kamus istilah dinamis Sekolah vs Kampus
-│   ├── security/         # Bcrypt hash & password validation rules
+│   ├── security/         # Bcrypt hash, E.164 phone normalizer, & strict password policy
 │   ├── services/         # Layanan konversi admisi & kalkulasi beasiswa
 │   └── storage/          # Abstraksi driver file storage (Local dev & S3 production)
 └── modules/              # Domain Modules
+    ├── otp/              # Mesin OTP WhatsApp/SMS (CSPRNG, HMAC, rate limit, provider adapters)
+    ├── saas/             # Tenant provisioning, slug validator, & entitlement/quota checker
     ├── auth/             # Login service & session
-    ├── identity/         # ID template generator & credential generator
+    ├── identity/         # ID template generator & virtual email generator
     ├── master-data/      # Data master akademik
-    ├── users/            # Manajemen pengguna & import CSV
+    ├── users/            # Manajemen pengguna, Kartu Akun, & import CSV
     ├── classroom/        # Materi & progres belajar
     ├── assignment/       # Tugas & penilaian
     ├── quiz/             # Bank soal & mesin kuis ujian
@@ -123,11 +136,8 @@ src/
 
 ## 🧪 Menjalankan Pengujian
 
-Menjalankan pengujian otomatis untuk alur autentikasi dan refaktor identitas / beasiswa:
+Menjalankan pengujian otomatis untuk alur autentikasi, OTP, aktivasi pertama, dan fondasi SaaS:
 ```bash
-# 1. Uji Autentikasi Regresi Fase 1
-npx tsx tests/unit/auth_test.ts
-
-# 2. Uji Test Suite Lengkap Fase 1B (Multi-identitas, Konversi Idempoten, Beasiswa Stacking Cap)
-npx tsx tests/unit/identity_refactor_test.ts
+# Uji Test Suite Komprehensif Fase 1C & Fase 1D
+npx tsx tests/unit/phase1c_phase1d_test.ts
 ```

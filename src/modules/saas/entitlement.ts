@@ -27,6 +27,7 @@ export type LimitKey =
 
 export interface LimitCheckResult {
   isAllowed: boolean;
+  allowed: boolean;
   maxAllowed: number;
   current: number;
   message?: string;
@@ -125,6 +126,7 @@ export async function checkLimit(
     if (limitKey === "maxOtpPerMonth" && current < maxAllowed * 1.2) {
       return {
         isAllowed: true,
+        allowed: true,
         maxAllowed,
         current,
         message: "Peringatan: Kuota OTP bulanan telah melampaui batas paket. Harap upgrade paket.",
@@ -133,11 +135,12 @@ export async function checkLimit(
 
     return {
       isAllowed: false,
+      allowed: false,
       maxAllowed,
       current,
       message: `Batas kuota ${limitKey} (${maxAllowed}) telah tercapai. Harap upgrade paket untuk menambah kapasitas.`,
     };
   }
 
-  return { isAllowed: true, maxAllowed, current };
+  return { isAllowed: true, allowed: true, maxAllowed, current };
 }

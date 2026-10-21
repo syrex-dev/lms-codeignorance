@@ -11,6 +11,8 @@ interface ConvertApplicantParams {
   applicantId: string;
   classCourseId?: string;
   convertedByUserId?: string;
+  institutionId?: string;
+  dbClient?: any;
 }
 
 export interface ConvertApplicantResult {
@@ -29,8 +31,12 @@ export async function convertApplicantToStudent({
   applicantId,
   classCourseId,
   convertedByUserId,
+  institutionId,
+  dbClient = prisma,
 }: ConvertApplicantParams): Promise<ConvertApplicantResult> {
-  const applicant = await prisma.applicant.findUnique({
+  const client = dbClient || prisma;
+
+  const applicant = await client.applicant.findUnique({
     where: { id: applicantId },
     include: {
       institution: true,
@@ -58,7 +64,7 @@ export async function convertApplicantToStudent({
 
   // 1. CEK IDEMPOTENSI: Jika pendaftar sudah berstatus CONVERTED
   if (applicant.status === ApplicantStatus.CONVERTED) {
-    const existingProfile = await prisma.studentProfile.findFirst({
+    const existingProfile = await client.studentProfile.findFirst({
       where: {
         institutionId: institution.id,
         originApplicationId: applicant.id,
@@ -66,13 +72,13 @@ export async function convertApplicantToStudent({
     });
 
     const existingId = user.identifiers.find(
-      (id) =>
+      (id: any) =>
         id.institutionId === institution.id &&
         id.type === IdentifierType.INSTITUTION_ID
     );
 
     const existingEmail = user.identifiers.find(
-      (id) =>
+      (id: any) =>
         id.institutionId === institution.id &&
         id.type === IdentifierType.INSTITUTION_EMAIL
     );
@@ -88,10 +94,13 @@ export async function convertApplicantToStudent({
     }
   }
 
-  // 2. Jalankan konversi dalam satu transaksi database atomik
+  // 2. Jalankan konversi dalam satu transaksi database atomik dengan penegakan RLS
   const result = await prisma.$transaction(async (tx) => {
+    // Set PostgreSQL session variable untuk penegakan RLS
+    const safeTenantId = institution.id.replace(/'/g, "''");
+    await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant = '${safeTenantId}';`);
+
     // A. Generate ID/NIM/NIS sesuai template institusi
-    // Hitung sequence yang sudah ada di institusi
     const currentStudentCount = await tx.studentProfile.count({
       where: { institutionId: institution.id },
     });
@@ -107,12 +116,10 @@ export async function convertApplicantToStudent({
       if (prodi) prodiCode = prodi.code;
     }
 
-    // Terapkan template (contoh: {YEAR2}{PRODI_CODE}{SEQ4})
     const generatedId = `${year2}${prodiCode}${nextSeq}`;
     const generatedEmail = `${generatedId}@${institution.emailDomain}`.toLowerCase();
 
     // B. Tambahkan UserIdentifier: INSTITUTION_ID dan INSTITUTION_EMAIL
-    // Menggunakan upsert untuk memastikan idempoten
     await tx.userIdentifier.upsert({
       where: {
         institutionId_type_value: {
@@ -159,31 +166,19 @@ export async function convertApplicantToStudent({
       },
     });
 
-    // C. Buat atau perbarui StudentProfile
-    const studentProfile = await tx.studentProfile.upsert({
-      where: {
-        institutionId_studentIdNumber: {
-          institutionId: institution.id,
-          studentIdNumber: generatedId,
-        },
-      },
-      update: {
-        programDepartmentId: targetProdiId,
-        originApplicationId: applicant.id,
-      },
-      create: {
+    // C. Buat StudentProfile baru dari Applicant
+    const studentProfile = await tx.studentProfile.create({
+      data: {
         userId: user.id,
         institutionId: institution.id,
         studentIdNumber: generatedId,
         programDepartmentId: targetProdiId,
-        cohortYear: new Date().getFullYear(),
         originApplicationId: applicant.id,
-        academicStatus: "ACTIVE",
+        cohortYear: new Date().getFullYear(),
       },
     });
 
-    // D. Kelola Membership:
-    // Ubah status Membership APPLICANT menjadi INACTIVE
+    // D. Update Membership: Jadikan Membership APPLICANT ARCHIVED, Tambahkan Membership STUDENT ACTIVE
     await tx.membership.updateMany({
       where: {
         userId: user.id,
@@ -191,12 +186,10 @@ export async function convertApplicantToStudent({
         role: UserRole.APPLICANT,
       },
       data: {
-        status: MembershipStatus.INACTIVE,
-        endedAt: new Date(),
+        status: MembershipStatus.ARCHIVED,
       },
     });
 
-    // Buat atau aktifkan Membership STUDENT
     await tx.membership.upsert({
       where: {
         userId_institutionId_role: {
@@ -213,38 +206,10 @@ export async function convertApplicantToStudent({
         institutionId: institution.id,
         role: UserRole.STUDENT,
         status: MembershipStatus.ACTIVE,
-        startedAt: new Date(),
       },
     });
 
-    // E. Penempatan Kelas & Jadwal Otomatis (jika classCourseId ditentukan)
-    if (classCourseId) {
-      await tx.classEnrollment.upsert({
-        where: {
-          classCourseId_studentUserId: {
-            classCourseId,
-            studentUserId: user.id,
-          },
-        },
-        update: {
-          status: "ACTIVE",
-        },
-        create: {
-          classCourseId,
-          studentUserId: user.id,
-          status: "ACTIVE",
-        },
-      });
-    }
-
-    // F. Perbarui status Applicant menjadi CONVERTED dan pastikan akun User ACTIVE tanpa mustChangePassword
-    await tx.applicant.update({
-      where: { id: applicant.id },
-      data: {
-        status: ApplicantStatus.CONVERTED,
-      },
-    });
-
+    // E. Pastikan status User tetap ACTIVE dan tidak dipaksa ganti password
     await tx.user.update({
       where: { id: user.id },
       data: {
@@ -253,7 +218,36 @@ export async function convertApplicantToStudent({
       },
     });
 
-    // G. Catat Riwayat ke AuditLog
+    // F. Update status Applicant menjadi CONVERTED
+    await tx.applicant.update({
+      where: { id: applicant.id },
+      data: {
+        status: ApplicantStatus.CONVERTED,
+        convertedAt: new Date(),
+      },
+    });
+
+    // G. Enrollment kelas otomatis jika classCourseId disediakan
+    if (classCourseId) {
+      await tx.classEnrollment.upsert({
+        where: {
+          classCourseId_userId: {
+            classCourseId,
+            userId: user.id,
+          },
+        },
+        update: {
+          status: "ACTIVE",
+        },
+        create: {
+          classCourseId,
+          userId: user.id,
+          status: "ACTIVE",
+        },
+      });
+    }
+
+    // H. Catat ke AuditLog
     await tx.auditLog.create({
       data: {
         institutionId: institution.id,
@@ -262,21 +256,10 @@ export async function convertApplicantToStudent({
         entityType: "Applicant",
         entityId: applicant.id,
         newValue: {
-          studentIdNumber: generatedId,
-          institutionEmail: generatedEmail,
+          generatedId,
+          generatedEmail,
           studentProfileId: studentProfile.id,
-          convertedAt: new Date(),
         },
-      },
-    });
-
-    // H. Kirim Notifikasi in-app
-    await tx.notification.create({
-      data: {
-        institutionId: institution.id,
-        userId: user.id,
-        title: "Selamat! Akun Mahasiswa/Siswa Telah Aktif",
-        message: `Pendaftaran Anda telah resmi dikonversi. ID Institusi Anda: ${generatedId}, Email: ${generatedEmail}. Anda tetap dapat masuk menggunakan email dan password pendaftaran Anda.`,
       },
     });
 

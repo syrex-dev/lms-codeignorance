@@ -45,6 +45,14 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Pengguna tidak ditemukan." }, { status: 404 });
       }
 
+      // Cek apakah akun sedang terkunci karena kegagalan sebelumnya
+      if (dbUser.lockedUntil && dbUser.lockedUntil > new Date()) {
+        return NextResponse.json(
+          { error: "Akun Anda sedang terkunci sementara karena 5 kali kegagalan verifikasi. Hubungi administrator institusi." },
+          { status: 423 }
+        );
+      }
+
       // Aturan identitas:
       // A. Jika admin sudah mengisi nomor HP: nomor terkunci ke nomor itu
       if (dbUser.phoneE164) {

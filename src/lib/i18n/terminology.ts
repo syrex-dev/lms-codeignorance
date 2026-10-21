@@ -6,6 +6,7 @@ export interface TerminologyMapping {
   department: string;
   departmentShort: string;
   classRoom: string;
+  class: string;
   course: string;
   teacher: string;
   student: string;
@@ -27,6 +28,7 @@ const SCHOOL_TERMINOLOGY: TerminologyMapping = {
   department: "Jurusan / Program Keahlian",
   departmentShort: "Jurusan",
   classRoom: "Kelas / Rombel",
+  class: "Rombel / Kelas",
   course: "Mata Pelajaran",
   teacher: "Guru",
   student: "Siswa",
@@ -48,6 +50,7 @@ const UNIVERSITY_TERMINOLOGY: TerminologyMapping = {
   department: "Program Studi",
   departmentShort: "Prodi",
   classRoom: "Kelas Perkuliahan",
+  class: "Mata Kuliah / Kelas",
   course: "Mata Kuliah",
   teacher: "Dosen",
   student: "Mahasiswa",

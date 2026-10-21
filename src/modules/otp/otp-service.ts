@@ -9,7 +9,7 @@ import {
   VerifyOtpParams,
   VerifyOtpResult,
 } from "./types";
-import { getOtpSender } from "./sender";
+import { getOtpSender, sendOtpWithFallback } from "./sender";
 
 const OTP_PEPPER = process.env.OTP_PEPPER_SECRET || "lms_secure_otp_pepper_secret_dev_2026";
 const OTP_EXPIRY_MINUTES = 10;
@@ -31,6 +31,8 @@ export function hashDestination(phoneE164: string): string {
 /**
  * Buat dan kirim tantangan OTP (WhatsApp / SMS)
  */
+export const issueOtpChallenge = (params: SendOtpParams) => createOtpChallenge(params);
+
 export async function createOtpChallenge(params: SendOtpParams): Promise<SendOtpResult> {
   const normalizedPhone = normalizePhoneE164(params.destinationE164);
 
@@ -62,20 +64,21 @@ export async function createOtpChallenge(params: SendOtpParams): Promise<SendOtp
       const waitSeconds = Math.ceil(RESEND_COOLDOWN_SECONDS - timeSinceLastSent);
       return {
         success: false,
+        error: `Silakan tunggu ${waitSeconds} detik sebelum meminta kode baru.`,
         cooldownSeconds: waitSeconds,
-        error: `Mohon tunggu ${waitSeconds} detik sebelum meminta kode OTP kembali.`,
       };
     }
 
     if (recentChallenge.resendCount >= MAX_RESENDS_PER_HOUR) {
       return {
         success: false,
-        error: "Batas pengiriman OTP per jam telah tercapai. Silakan coba lagi nanti.",
+        error: "Batas maksimal pengiriman OTP per jam telah tercapai. Silakan coba 1 jam lagi.",
+        cooldownSeconds: 3600,
       };
     }
   }
 
-  // 3. Batalkan OTP aktif sebelumnya untuk tujuan & purpose ini
+  // 3. Batalkan/hanguskan OTP aktif sebelumnya untuk tujuan dan tujuan nomor yang sama
   await prisma.otpChallenge.updateMany({
     where: {
       destinationHash: destHash,
@@ -84,7 +87,7 @@ export async function createOtpChallenge(params: SendOtpParams): Promise<SendOtp
       expiresAt: { gt: now },
     },
     data: {
-      consumedAt: now, // Invalidate previous active OTP
+      consumedAt: now,
     },
   });
 
@@ -92,27 +95,9 @@ export async function createOtpChallenge(params: SendOtpParams): Promise<SendOtp
   const rawCode = crypto.randomInt(100000, 999999).toString();
   const codeHash = hashOtpCode(rawCode);
   const expiresAt = new Date(now.getTime() + OTP_EXPIRY_MINUTES * 60 * 1000);
-
-  // 5. Simpan tantangan OTP baru ke database
   const resendCount = recentChallenge ? recentChallenge.resendCount + 1 : 0;
-  const challenge = await prisma.otpChallenge.create({
-    data: {
-      institutionId: params.institutionId || null,
-      userId: params.userId || null,
-      purpose: params.purpose,
-      channel: params.channel,
-      destinationE164: normalizedPhone,
-      destinationHash: destHash,
-      codeHash,
-      expiresAt,
-      resendCount,
-      lastSentAt: now,
-      ipAddress: params.ipAddress || null,
-      userAgent: params.userAgent || null,
-    },
-  });
 
-  // 6. Ambil nama institusi untuk pesan resmi
+  // 5. Ambil nama institusi untuk pesan resmi
   let tenantName = "LMS Platform";
   let tenantSlug = "system";
   if (params.institutionId) {
@@ -128,9 +113,8 @@ export async function createOtpChallenge(params: SendOtpParams): Promise<SendOtp
 
   const messageText = `${tenantName}: kode verifikasi Anda ${rawCode}. Berlaku ${OTP_EXPIRY_MINUTES} menit. Jangan bagikan kode ini kepada siapa pun, termasuk pihak yang mengaku dari ${tenantName}.`;
 
-  // 7. Kirim pesan lewat provider (WhatsApp / SMS / Mock)
-  const sender = getOtpSender(params.channel);
-  const deliveryResult = await sender.send(
+  // 6. Kirim pesan lewat provider dengan fallback otomatis WhatsApp -> SMS
+  const deliveryResult = await sendOtpWithFallback(
     params.channel,
     normalizedPhone,
     messageText,
@@ -138,48 +122,80 @@ export async function createOtpChallenge(params: SendOtpParams): Promise<SendOtp
     { institutionSlug: tenantSlug, purpose: params.purpose }
   );
 
-  // 8. Catat status pengiriman di OtpDelivery
-  await prisma.otpDelivery.create({
-    data: {
-      challengeId: challenge.id,
-      provider: deliveryResult.provider,
-      providerMessageId: deliveryResult.providerMessageId || null,
-      status: deliveryResult.status,
-      errorCode: deliveryResult.errorCode || null,
-      costEstimate: deliveryResult.costEstimate || 0,
-    },
-  });
+  // 7. Simpan tantangan OTP baru & catat pemakaian dalam transaksi dengan RLS context
+  const { challenge, warning } = await prisma.$transaction(async (tx) => {
+    if (params.institutionId) {
+      const safeId = params.institutionId.replace(/'/g, "''");
+      await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant = '${safeId}';`);
+    }
 
-  // 9. Catat pemakaian OTP ke UsageRecord tenant
-  if (params.institutionId) {
-    const periodMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}`;
-    await prisma.usageRecord.upsert({
-      where: {
-        institutionId_periodMonth: {
-          institutionId: params.institutionId,
-          periodMonth,
-        },
-      },
-      update: {
-        otpSent: { increment: 1 },
-        otpCostEstimate: { increment: deliveryResult.costEstimate || 0 },
-      },
-      create: {
-        institutionId: params.institutionId,
-        periodMonth,
-        otpSent: 1,
-        otpCostEstimate: deliveryResult.costEstimate || 0,
+    const createdChallenge = await tx.otpChallenge.create({
+      data: {
+        institutionId: params.institutionId || null,
+        userId: params.userId || null,
+        purpose: params.purpose,
+        channel: params.channel,
+        destinationE164: normalizedPhone,
+        destinationHash: destHash,
+        codeHash,
+        expiresAt,
+        resendCount,
+        lastSentAt: now,
+        ipAddress: params.ipAddress || null,
+        userAgent: params.userAgent || null,
       },
     });
-  }
+
+    await tx.otpDelivery.create({
+      data: {
+        challengeId: createdChallenge.id,
+        provider: deliveryResult.provider,
+        providerMessageId: deliveryResult.providerMessageId || null,
+        status: deliveryResult.status,
+        errorCode: deliveryResult.errorCode || null,
+        costEstimate: deliveryResult.costEstimate || 0,
+      },
+    });
+
+    let warnMsg: string | undefined;
+    if (params.institutionId) {
+      const periodMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}`;
+      const usage = await tx.usageRecord.upsert({
+        where: {
+          institutionId_periodMonth: {
+            institutionId: params.institutionId,
+            periodMonth,
+          },
+        },
+        update: {
+          otpSent: { increment: 1 },
+          otpCostEstimate: { increment: deliveryResult.costEstimate || 0 },
+        },
+        create: {
+          institutionId: params.institutionId,
+          periodMonth,
+          otpSent: 1,
+          otpCostEstimate: deliveryResult.costEstimate || 0,
+        },
+      });
+
+      const MAX_OTP_THRESHOLD = 500;
+      if (usage.otpSent >= MAX_OTP_THRESHOLD * 0.8) {
+        warnMsg = `Peringatan: Penggunaan OTP institusi Anda telah mencapai ${usage.otpSent} pengiriman (${Math.round((usage.otpSent / MAX_OTP_THRESHOLD) * 100)}% dari kuota bulanan).`;
+      }
+    }
+
+    return { challenge: createdChallenge, warning: warnMsg };
+  });
 
   return {
     success: true,
     challengeId: challenge.id,
     destinationMasked: maskPhoneNumber(normalizedPhone),
-    channel: params.channel,
+    channel: deliveryResult.channel,
     expiresAt,
     cooldownSeconds: RESEND_COOLDOWN_SECONDS,
+    warning,
   };
 }
 
@@ -192,57 +208,73 @@ export async function verifyOtpCode(params: VerifyOtpParams): Promise<VerifyOtpR
   });
 
   if (!challenge) {
-    return { success: false, error: "Tantangan verifikasi tidak ditemukan." };
-  }
-
-  // Cek purpose cocok
-  if (challenge.purpose !== params.purpose) {
-    return { success: false, error: "Tujuan verifikasi tidak sesuai." };
-  }
-
-  // Cek apakah sudah digunakan
-  if (challenge.consumedAt) {
-    return { success: false, error: "Kode verifikasi ini sudah pernah digunakan atau kedaluwarsa." };
-  }
-
-  const now = new Date();
-  if (now > challenge.expiresAt) {
-    return { success: false, error: "Kode verifikasi telah kedaluwarsa. Silakan minta kode baru." };
-  }
-
-  // Cek batas percobaan salah
-  if (challenge.attempts >= challenge.maxAttempts) {
     return {
       success: false,
-      error: "Kode verifikasi telah hangus karena melebihi batas percobaan. Silakan minta kode baru.",
+      error: "Sesi verifikasi OTP tidak ditemukan atau telah kedaluwarsa.",
     };
   }
 
-  // Constant-time compare
-  const providedHash = hashOtpCode(params.code.trim());
-  const storedHashBuffer = Buffer.from(challenge.codeHash, "hex");
-  const providedHashBuffer = Buffer.from(providedHash, "hex");
+  // 1. Cek apakah sudah hangus / pernah dipakai
+  if (challenge.consumedAt) {
+    return {
+      success: false,
+      error: "Kode verifikasi telah digunakan sebelumnya.",
+    };
+  }
 
-  const isMatch =
-    storedHashBuffer.length === providedHashBuffer.length &&
-    crypto.timingSafeEqual(storedHashBuffer, providedHashBuffer);
+  // 2. Cek apakah kedaluwarsa
+  const now = new Date();
+  if (challenge.expiresAt < now) {
+    return {
+      success: false,
+      error: "Kode verifikasi telah kedaluwarsa. Silakan minta kode baru.",
+    };
+  }
+
+  // 3. Cek batas kegagalan percobaan
+  if (challenge.attempts >= MAX_ATTEMPTS) {
+    return {
+      success: false,
+      error: "Kode OTP telah hangus karena 5 kali salah input. Silakan minta kode baru.",
+    };
+  }
+
+  // 4. Verifikasi kecocokan nomor tujuan jika disyaratkan
+  if (params.expectedDestinationE164) {
+    const expectedHash = hashDestination(normalizePhoneE164(params.expectedDestinationE164));
+    if (challenge.destinationHash !== expectedHash) {
+      return {
+        success: false,
+        error: "Kode OTP tidak valid untuk nomor handphone ini.",
+      };
+    }
+  }
+
+  // 5. Bandingkan hash kode OTP secara constant-time
+  const inputHash = hashOtpCode(params.code.trim());
+  const isMatch = crypto.timingSafeEqual(
+    Buffer.from(inputHash, "utf-8"),
+    Buffer.from(challenge.codeHash, "utf-8")
+  );
 
   if (!isMatch) {
-    const updatedAttempts = challenge.attempts + 1;
-    await prisma.otpChallenge.update({
+    const updated = await prisma.otpChallenge.update({
       where: { id: challenge.id },
-      data: { attempts: updatedAttempts },
+      data: { attempts: { increment: 1 } },
+      select: { attempts: true },
     });
 
-    const attemptsRemaining = Math.max(0, challenge.maxAttempts - updatedAttempts);
+    const remaining = MAX_ATTEMPTS - updated.attempts;
     return {
       success: false,
-      attemptsRemaining,
-      error: `Kode verifikasi salah. Sisa percobaan: ${attemptsRemaining}.`,
+      error: remaining > 0
+        ? `Kode verifikasi salah. Sisa kesempatan: ${remaining} kali.`
+        : "Kode verifikasi telah hangus karena 5 kali salah.",
+      remainingAttempts: remaining,
     };
   }
 
-  // Sukses: tandai consumed dan buat single-use verification token (10 menit)
+  // 6. OTP Valid: Terbitkan token verifikasi sekali pakai berumur 10 menit
   const verificationToken = crypto.randomBytes(32).toString("hex");
   const tokenExpiresAt = new Date(now.getTime() + 10 * 60 * 1000);
 
@@ -258,46 +290,6 @@ export async function verifyOtpCode(params: VerifyOtpParams): Promise<VerifyOtpR
   return {
     success: true,
     verificationToken,
-    destinationE164: challenge.destinationE164,
-    userId: challenge.userId,
-    institutionId: challenge.institutionId,
-  };
-}
-
-/**
- * Validasi dan konsumsi verification token yang dihasilkan setelah OTP valid
- */
-export async function consumeVerificationToken(
-  token: string,
-  expectedPurpose: OtpPurpose
-): Promise<{ isValid: boolean; destinationE164?: string; userId?: string | null; institutionId?: string | null }> {
-  if (!token) return { isValid: false };
-
-  const challenge = await prisma.otpChallenge.findUnique({
-    where: { verificationToken: token },
-  });
-
-  if (!challenge) return { isValid: false };
-
-  const now = new Date();
-  if (
-    challenge.purpose !== expectedPurpose ||
-    !challenge.verificationTokenExpiresAt ||
-    now > challenge.verificationTokenExpiresAt
-  ) {
-    return { isValid: false };
-  }
-
-  // Invalidate token setelah sekali pakai
-  await prisma.otpChallenge.update({
-    where: { id: challenge.id },
-    data: { verificationToken: null, verificationTokenExpiresAt: null },
-  });
-
-  return {
-    isValid: true,
-    destinationE164: challenge.destinationE164,
-    userId: challenge.userId,
-    institutionId: challenge.institutionId,
+    message: "Verifikasi berhasil.",
   };
 }

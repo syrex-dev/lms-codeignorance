@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 export const RESERVED_SLUGS = new Set([
   "www", "app", "api", "admin", "platform", "mail", "dev", "auth",
   "login", "signup", "dashboard", "public", "system", "superadmin",
-  "root", "billing", "help", "support", "status"
+  "root", "billing", "help", "support", "status", "portal"
 ]);
 
 export function validateTenantSlug(slug: string): { isValid: boolean; error?: string } {
@@ -92,6 +92,10 @@ export async function createTenantTrial(params: CreateTenantTrialParams) {
         keepPersonalEmailLogin: true,
       },
     });
+
+    // Set PostgreSQL session variable untuk penegakan RLS pada entitas bertenant
+    const safeTenantId = institution.id.replace(/'/g, "''");
+    await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant = '${safeTenantId}';`);
 
     // 2. Buat Subscription Trial
     if (starterPlan) {

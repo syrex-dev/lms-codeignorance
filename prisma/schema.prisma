@@ -1,6 +1,7 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
@@ -345,6 +346,7 @@ model Institution {
   questionBanks         QuestionBank[]
   notifications         Notification[]
   otpChallenges         OtpChallenge[]
+  idCounters            IdCounter[]
 
   // Financial & Scholarship Relations
   feeComponents         FeeComponent[]
@@ -355,6 +357,20 @@ model Institution {
 
   @@index([slug])
   @@index([status])
+}
+
+model IdCounter {
+  id            String   @id @default(uuid())
+  institutionId String
+  scope         String   // e.g. "STUDENT", "STAFF" or specific template key
+  year          Int      // e.g. 2024
+  lastSequence  Int      @default(0)
+  updatedAt     DateTime @updatedAt
+
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@unique([institutionId, scope, year])
+  @@index([institutionId, scope])
 }
 
 // ----------------------------------------------------

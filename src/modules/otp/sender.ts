@@ -4,10 +4,12 @@ import { OtpChannel, OtpDeliveryStatus } from "./types";
 export interface DeliveryResult {
   success: boolean;
   provider: string;
+  channel: OtpChannel;
   providerMessageId?: string;
   status: OtpDeliveryStatus;
   errorCode?: string;
   costEstimate?: number;
+  fallbackUsed?: boolean;
 }
 
 export interface OtpSender {
@@ -23,9 +25,11 @@ export interface OtpSender {
 /**
  * MockOtpSender: Digunakan saat development / testing.
  * Menulis pesan ke tabel DevOutbox sehingga dapat dilihat langsung di /dev/outbox.
- * Tidak pernah membocorkan OTP ke log produksi.
+ * Mendukung simulasi kegagalan untuk menguji alur fallback WhatsApp ke SMS.
  */
 export class MockOtpSender implements OtpSender {
+  public static simulateWhatsAppFailure: boolean = false;
+
   async send(
     channel: OtpChannel,
     destinationE164: string,
@@ -33,6 +37,17 @@ export class MockOtpSender implements OtpSender {
     code: string,
     metadata?: { institutionSlug?: string; purpose?: string }
   ): Promise<DeliveryResult> {
+    // Simulasi kegagalan pengiriman WhatsApp untuk testing fallback
+    if (channel === OtpChannel.WHATSAPP && MockOtpSender.simulateWhatsAppFailure) {
+      return {
+        success: false,
+        channel,
+        provider: "MOCK_WHATSAPP_SIMULATOR",
+        status: OtpDeliveryStatus.FAILED,
+        errorCode: "SIMULATED_WA_DELIVERY_FAILURE",
+      };
+    }
+
     try {
       await prisma.devOutbox.create({
         data: {
@@ -47,6 +62,7 @@ export class MockOtpSender implements OtpSender {
 
       return {
         success: true,
+        channel,
         provider: "MOCK_DEV_OUTBOX",
         providerMessageId: `mock_${Date.now()}`,
         status: OtpDeliveryStatus.DELIVERED,
@@ -56,6 +72,7 @@ export class MockOtpSender implements OtpSender {
       console.error("MockOtpSender error:", e);
       return {
         success: false,
+        channel,
         provider: "MOCK_DEV_OUTBOX",
         status: OtpDeliveryStatus.FAILED,
         errorCode: e.message,
@@ -86,7 +103,6 @@ export class WhatsAppOtpSender implements OtpSender {
     }
 
     try {
-      // Endpoint resmi Meta WhatsApp Business Cloud API
       const res = await fetch(`https://graph.facebook.com/v20.0/${waPhoneId}/messages`, {
         method: "POST",
         headers: {
@@ -108,6 +124,7 @@ export class WhatsAppOtpSender implements OtpSender {
 
       return {
         success: true,
+        channel: OtpChannel.WHATSAPP,
         provider: "WHATSAPP_CLOUD",
         providerMessageId: data.messages?.[0]?.id,
         status: OtpDeliveryStatus.SENT,
@@ -116,6 +133,7 @@ export class WhatsAppOtpSender implements OtpSender {
     } catch (e: any) {
       return {
         success: false,
+        channel: OtpChannel.WHATSAPP,
         provider: "WHATSAPP_CLOUD",
         status: OtpDeliveryStatus.FAILED,
         errorCode: e.message,
@@ -161,6 +179,7 @@ export class SmsOtpSender implements OtpSender {
       const data = await res.json();
       return {
         success: res.ok,
+        channel: OtpChannel.SMS,
         provider: "SMS_GATEWAY",
         providerMessageId: data.messageId,
         status: res.ok ? OtpDeliveryStatus.SENT : OtpDeliveryStatus.FAILED,
@@ -169,12 +188,45 @@ export class SmsOtpSender implements OtpSender {
     } catch (e: any) {
       return {
         success: false,
+        channel: OtpChannel.SMS,
         provider: "SMS_GATEWAY",
         status: OtpDeliveryStatus.FAILED,
         errorCode: e.message,
       };
     }
   }
+}
+
+/**
+ * Pengirim OTP dengan dukungan fallback otomatis WhatsApp -> SMS
+ */
+export async function sendOtpWithFallback(
+  preferredChannel: OtpChannel,
+  destinationE164: string,
+  message: string,
+  code: string,
+  metadata?: { institutionSlug?: string; purpose?: string }
+): Promise<DeliveryResult> {
+  const primarySender = preferredChannel === OtpChannel.WHATSAPP ? new WhatsAppOtpSender() : new SmsOtpSender();
+  const primaryResult = await primarySender.send(preferredChannel, destinationE164, message, code, metadata);
+
+  // Jika pengiriman utama berhasil, kembalikan hasil
+  if (primaryResult.success) {
+    return primaryResult;
+  }
+
+  // Jika preferred channel adalah WHATSAPP dan gagal, lakukan fallback otomatis ke SMS
+  if (preferredChannel === OtpChannel.WHATSAPP) {
+    console.warn(`[OTP] WhatsApp delivery failed (${primaryResult.errorCode}), attempting SMS fallback...`);
+    const fallbackSender = new SmsOtpSender();
+    const fallbackResult = await fallbackSender.send(OtpChannel.SMS, destinationE164, message, code, metadata);
+    return {
+      ...fallbackResult,
+      fallbackUsed: true,
+    };
+  }
+
+  return primaryResult;
 }
 
 export function getOtpSender(channel: OtpChannel): OtpSender {

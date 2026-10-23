@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth-options";
 import { prisma } from "@/lib/db/prisma";
+import { withTenantTransaction } from "@/lib/db/tenant-prisma";
 import { consumeVerificationToken } from "@/modules/otp/otp-service";
 import { validatePasswordPolicy } from "@/lib/security/password-policy";
 import { hashPassword } from "@/lib/security/hash";
@@ -31,10 +32,13 @@ export async function POST(req: Request) {
     }
 
     // 2. Ambil data user dari database
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: { identifiers: true, institution: true },
-    });
+    const tenantId = (session.user as any).activeInstitutionId;
+    const user = await withTenantTransaction(tenantId, async (tenantDb) =>
+      tenantDb.user.findUnique({
+        where: { id: session.user.id },
+        include: { identifiers: true, institution: true },
+      })
+    );
 
     if (!user) {
       return NextResponse.json({ error: "Pengguna tidak ditemukan." }, { status: 404 });
@@ -59,7 +63,7 @@ export async function POST(req: Request) {
     const now = new Date();
 
     // 5. Update data User secara atomik
-    await prisma.$transaction(async (tx) => {
+    await withTenantTransaction(tenantId, async (tx) => {
       // Simpan riwayat password lama
       await tx.passwordHistory.create({
         data: {

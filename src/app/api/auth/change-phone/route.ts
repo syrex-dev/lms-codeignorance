@@ -34,7 +34,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Pengguna tidak ditemukan." }, { status: 404 });
     }
 
-    // 1. Verifikasi Password Pengguna
+    // 1. Cek Masa Pendinginan (Cooldown 24 Jam)
+    const COOLDOWN_HOURS = 24;
+    if (user.phoneVerifiedAt && user.phoneE164) {
+      const diffHours = (Date.now() - new Date(user.phoneVerifiedAt).getTime()) / (1000 * 60 * 60);
+      if (diffHours < COOLDOWN_HOURS) {
+        const remainingHours = Math.ceil(COOLDOWN_HOURS - diffHours);
+        return NextResponse.json(
+          { error: `Nomor HP baru saja diubah. Mohon menunggu masa pendinginan (${remainingHours} jam lagi) sebelum dapat mengubah nomor kembali.` },
+          { status: 429 }
+        );
+      }
+    }
+
+    // 2. Verifikasi Password Pengguna
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       return NextResponse.json(

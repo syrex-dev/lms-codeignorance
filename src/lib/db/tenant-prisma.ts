@@ -1,4 +1,4 @@
-import { prisma } from "./prisma";
+import { prisma, platformPrisma } from "./prisma";
 
 export const TENANT_SCOPED_MODELS = [
   "user",
@@ -42,15 +42,33 @@ export function isTenantScopedModel(modelName: string): boolean {
 }
 
 /**
+ * Validasi ketat format tenantId (mencegah SQL injection dan format invalid)
+ */
+export function validateTenantId(tenantId: string | null | undefined): string {
+  if (!tenantId || typeof tenantId !== "string" || tenantId.trim() === "") {
+    throw new Error("Tenant context required: Query executed without institutionId (fail closed)");
+  }
+  const clean = tenantId.trim();
+  // Format tenantId harus alphanumeric, dash, underscore, panjang 1 - 64 karakter (UUID atau slug)
+  if (!/^[a-zA-Z0-9_-]+$/.test(clean) || clean.length > 64) {
+    throw new Error(`Invalid tenantId format: '${clean}'. Karakter terlarang atau percobaan SQL injection ditolak.`);
+  }
+  return clean;
+}
+
+/**
+ * Fail-Closed Guard: Memastikan query langsung tanpa konteks tenant ditolak
+ */
+export function assertTenantContext(institutionId: string | null | undefined): asserts institutionId is string {
+  validateTenantId(institutionId);
+}
+
+/**
  * Mendapatkan Prisma Client bertenant dengan perlindungan fail-closed.
  * Mendukung top-level PrismaClient (lewat $extends) maupun transaction client tx (lewat Proxy).
  */
 export function getTenantPrisma(institutionId: string, baseClient: any = prisma) {
-  if (!institutionId || typeof institutionId !== "string" || institutionId.trim() === "") {
-    throw new Error("Tenant context required: Query executed without institutionId (fail closed)");
-  }
-
-  const cleanTenantId = institutionId.trim();
+  const cleanTenantId = validateTenantId(institutionId);
 
   // 1. Jika baseClient memiliki $extends (top-level client)
   if (typeof baseClient.$extends === "function") {
@@ -180,39 +198,31 @@ export function getTenantPrisma(institutionId: string, baseClient: any = prisma)
 
 /**
  * Platform Prisma: Digunakan secara eksplisit khusus untuk operasional platform lintas-tenant
+ * Menggunakan client role lms_platform (BYPASSRLS)
  */
 export function getPlatformPrisma(operatorId: string, reason: string) {
-  if (!operatorId || !reason) {
-    throw new Error("Platform operations require operatorId and written audit reason");
+  if (!operatorId || !reason || reason.trim().length < 5) {
+    throw new Error("Platform operations require operatorId and written audit reason (min 5 chars)");
   }
 
-  return prisma;
-}
-
-/**
- * Fail-Closed Guard: Memastikan query langsung tanpa konteks tenant ditolak
- */
-export function assertTenantContext(institutionId: string | null | undefined): asserts institutionId is string {
-  if (!institutionId || typeof institutionId !== "string" || institutionId.trim() === "") {
-    throw new Error("Tenant context required: Query executed without institutionId (fail closed)");
-  }
+  return platformPrisma;
 }
 
 /**
  * Menjalankan transaksi dengan PostgreSQL Row-Level Security (RLS) variabel session
+ * Menggunakan parameterized set_config('app.current_tenant', $1, true)
  */
 export async function withTenantTransaction<T>(
   institutionId: string,
   callback: (tx: any) => Promise<T>
 ): Promise<T> {
-  assertTenantContext(institutionId);
+  const safeTenantId = validateTenantId(institutionId);
 
   return prisma.$transaction(async (tx) => {
-    // Set PostgreSQL session variable untuk penegakan RLS di level basis data
-    const safeTenantId = institutionId.replace(/'/g, "''");
-    await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant = '${safeTenantId}';`);
+    // Parameterized PostgreSQL set_config untuk penegakan RLS di level transaksi
+    await tx.$executeRaw`SELECT set_config('app.current_tenant', ${safeTenantId}, true);`;
 
-    const tenantTx = getTenantPrisma(institutionId, tx);
+    const tenantTx = getTenantPrisma(safeTenantId, tx);
     return callback(tenantTx);
   });
 }

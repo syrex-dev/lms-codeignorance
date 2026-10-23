@@ -8,7 +8,7 @@ export async function middleware(req: NextRequest) {
   // Lewati static assets, upload files, dan route internal
   if (
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/") ||
     pathname.startsWith("/uploads") ||
     pathname.startsWith("/dev") ||
     pathname === "/signup" ||

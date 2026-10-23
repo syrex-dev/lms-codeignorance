@@ -1,4 +1,5 @@
-import { prisma } from "@/lib/db/prisma";
+import { prisma, platformPrisma } from "@/lib/db/prisma";
+import { NextResponse } from "next/server";
 
 export type FeatureKey =
   | "classroom"
@@ -31,6 +32,14 @@ export interface LimitCheckResult {
   maxAllowed: number;
   current: number;
   message?: string;
+  isNearQuota?: boolean;
+}
+
+export class EntitlementError extends Error {
+  constructor(message: string, public readonly featureKey: FeatureKey) {
+    super(message);
+    this.name = "EntitlementError";
+  }
 }
 
 /**
@@ -40,7 +49,7 @@ export async function hasFeature(institutionId: string, featureKey: FeatureKey):
   if (!institutionId) return false;
 
   // 1. Cek TenantFeatureOverride spesifik
-  const override = await prisma.tenantFeatureOverride.findUnique({
+  const override = await platformPrisma.tenantFeatureOverride.findUnique({
     where: {
       institutionId_featureKey: {
         institutionId,
@@ -54,7 +63,7 @@ export async function hasFeature(institutionId: string, featureKey: FeatureKey):
   }
 
   // 2. Cek fitur dari paket (Plan) institusi
-  const institution = await prisma.institution.findUnique({
+  const institution = await platformPrisma.institution.findUnique({
     where: { id: institutionId },
     include: {
       plan: {
@@ -67,7 +76,7 @@ export async function hasFeature(institutionId: string, featureKey: FeatureKey):
 
   if (!institution) return false;
 
-  // Jika belum ada paket, default izinkan fitur dasar modul
+  // Jika institusi belum memiliki paket terikat, fitur dasar diizinkan
   if (!institution.plan) {
     return true;
   }
@@ -77,7 +86,39 @@ export async function hasFeature(institutionId: string, featureKey: FeatureKey):
 }
 
 /**
- * Service Limit Terpusat: Memeriksa kuota batas penggunaan tenant
+ * 2.d: Pola reusable requireFeature('<key>') untuk route handler dan halaman server.
+ * Menolak akses langsung jika fitur di luar paket.
+ */
+export async function requireFeature(institutionId: string, featureKey: FeatureKey): Promise<void> {
+  const allowed = await hasFeature(institutionId, featureKey);
+  if (!allowed) {
+    throw new EntitlementError(
+      `Fitur '${featureKey}' tidak aktif untuk institusi ini. Silakan hubungi admin atau upgrade paket berlangganan.`,
+      featureKey
+    );
+  }
+}
+
+/**
+ * Route handler helper: mengembalikan respons HTTP 403 JSON jika fitur tidak aktif
+ */
+export async function assertRouteFeature(institutionId: string, featureKey: FeatureKey) {
+  const allowed = await hasFeature(institutionId, featureKey);
+  if (!allowed) {
+    return NextResponse.json(
+      {
+        error: `Fitur '${featureKey}' tidak aktif untuk institusi ini. Akses API ditolak.`,
+        code: "FEATURE_DISABLED",
+        feature: featureKey,
+      },
+      { status: 403 }
+    );
+  }
+  return null;
+}
+
+/**
+ * Service Limit Terpusat: Memeriksa kuota batas penggunaan tenant & peringatan mendekati kuota
  */
 export async function checkLimit(
   institutionId: string,
@@ -114,22 +155,25 @@ export async function checkLimit(
     } else if (limitKey === "maxOtpPerMonth") {
       const now = new Date();
       const periodMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}`;
-      const usage = await prisma.usageRecord.findUnique({
+      const usage = await platformPrisma.usageRecord.findUnique({
         where: { institutionId_periodMonth: { institutionId, periodMonth } },
       });
       current = usage?.otpSent ?? 0;
     }
   }
 
+  const isNearQuota = current >= maxAllowed * 0.8 && current < maxAllowed;
+
   if (current >= maxAllowed) {
-    // Pengecualian khusus kuota OTP: aktivasi & forgot password tetap diizinkan dengan toleransi kewajaran
+    // Toleransi khusus OTP 120% untuk emergency aktivasi & forgot password
     if (limitKey === "maxOtpPerMonth" && current < maxAllowed * 1.2) {
       return {
         isAllowed: true,
         allowed: true,
         maxAllowed,
         current,
-        message: "Peringatan: Kuota OTP bulanan telah melampaui batas paket. Harap upgrade paket.",
+        isNearQuota: true,
+        message: "Peringatan: Kuota OTP bulanan telah melampaui batas paket. Harap segera upgrade paket.",
       };
     }
 
@@ -138,9 +182,17 @@ export async function checkLimit(
       allowed: false,
       maxAllowed,
       current,
+      isNearQuota: false,
       message: `Batas kuota ${limitKey} (${maxAllowed}) telah tercapai. Harap upgrade paket untuk menambah kapasitas.`,
     };
   }
 
-  return { isAllowed: true, allowed: true, maxAllowed, current };
+  return {
+    isAllowed: true,
+    allowed: true,
+    maxAllowed,
+    current,
+    isNearQuota,
+    message: isNearQuota ? `Peringatan: Pemakaian ${limitKey} telah mencapai ${Math.round((current / maxAllowed) * 100)}% dari kuota.` : undefined,
+  };
 }

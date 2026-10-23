@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth/auth-options";
 import { createOtpChallenge } from "@/modules/otp/otp-service";
 import { OtpChannel, OtpPurpose } from "@/modules/otp/types";
 import { prisma } from "@/lib/db/prisma";
+import { withTenantTransaction } from "@/lib/db/tenant-prisma";
 
 export async function POST(req: Request) {
   try {
@@ -36,10 +37,13 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Sesi login diperlukan untuk aktivasi akun." }, { status: 401 });
       }
 
-      const dbUser = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        include: { institution: true },
-      });
+      const tenantId = targetInstitutionId || (session.user as any).activeInstitutionId;
+      const dbUser = await withTenantTransaction(tenantId, async (tenantDb) =>
+        tenantDb.user.findUnique({
+          where: { id: session.user.id },
+          include: { institution: true },
+        })
+      );
 
       if (!dbUser) {
         return NextResponse.json({ error: "Pengguna tidak ditemukan." }, { status: 404 });
@@ -77,10 +81,12 @@ export async function POST(req: Request) {
             // Catat kegagalan & update failed attempts
             const newFailed = dbUser.failedLoginAttempts + 1;
             const lockedUntil = newFailed >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
-            await prisma.user.update({
-              where: { id: dbUser.id },
-              data: { failedLoginAttempts: newFailed, lockedUntil },
-            });
+            await withTenantTransaction(tenantId, async (tenantDb) =>
+              tenantDb.user.update({
+                where: { id: dbUser.id },
+                data: { failedLoginAttempts: newFailed, lockedUntil },
+              })
+            );
 
             return NextResponse.json(
               { error: "Tanggal lahir tidak cocok dengan data registrasi. Hubungi administrator." },

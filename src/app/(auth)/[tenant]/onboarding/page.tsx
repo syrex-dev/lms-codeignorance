@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth-options";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db/prisma";
+import { withTenantTransaction } from "@/lib/db/tenant-prisma";
 import { maskPhoneNumber } from "@/lib/security/phone";
 import OnboardingForm from "./onboarding-form";
 
@@ -22,13 +22,16 @@ export default async function OnboardingPage({ params }: OnboardingPageProps) {
     redirect(`/${tenant}/dashboard`);
   }
 
-  // Ambil data user & institusi dari database
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    include: {
-      institution: true,
-      identifiers: true,
-    },
+  // Ambil data user & institusi dari database menggunakan transaksi RLS
+  const tenantId = session.user.activeInstitutionId;
+  const user = await withTenantTransaction(tenantId, async (tenantDb) => {
+    return tenantDb.user.findUnique({
+      where: { id: session.user.id },
+      include: {
+        institution: true,
+        identifiers: true,
+      },
+    });
   });
 
   if (!user) {
@@ -55,7 +58,7 @@ export default async function OnboardingPage({ params }: OnboardingPageProps) {
             Selamat Datang, {user.fullName}
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            {institution.name} ({user.identifiers.find((i) => i.isPrimary)?.value || session.user.identifier})
+            {institution.name} ({user.identifiers.find((i: any) => i.isPrimary)?.value || session.user.identifier})
           </p>
           <p className="text-xs text-slate-500 mt-2">
             Verifikasi nomor handphone Anda dan tetapkan password baru untuk mengamankan akun sebelum mulai menggunakan portal.

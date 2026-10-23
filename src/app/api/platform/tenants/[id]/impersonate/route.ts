@@ -46,6 +46,7 @@ export async function POST(
         platformUserId: platformUser.id,
         action: "TENANT_SUPPORT_ACCESS_INITIATED",
         details: {
+          sessionToken,
           tenantId: tenant.id,
           tenantSlug: tenant.slug,
           reason,

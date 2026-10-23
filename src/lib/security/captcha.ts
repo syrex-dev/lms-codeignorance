@@ -10,13 +10,24 @@ export interface CaptchaVerifier {
 }
 
 /**
- * MockCaptchaVerifier: Digunakan pada lingkungan testing & development.
- * Menerima token mock atau lolos otomatis saat development.
+ * MockCaptchaVerifier: Hanya aktif jika NODE_ENV !== "production" DAN flag eksplisit ALLOW_MOCK_CAPTCHA="true"
  */
 export class MockCaptchaVerifier implements CaptchaVerifier {
   async verify(token?: string, remoteIp?: string): Promise<CaptchaVerifyResult> {
-    if (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") {
-      return { success: true };
+    // 2.b: Di lingkungan produksi, mock SELALU ditolak keras (fail-closed)
+    if (process.env.NODE_ENV === "production") {
+      return {
+        success: false,
+        error: "Mock captcha ditolak keras di lingkungan produksi (fail closed).",
+      };
+    }
+
+    // Hanya aktif bila flag eksplisit ALLOW_MOCK_CAPTCHA diset true
+    if (process.env.ALLOW_MOCK_CAPTCHA !== "true") {
+      return {
+        success: false,
+        error: "Mock captcha dinonaktifkan. Diperlukan konfigurasi eksplisit ALLOW_MOCK_CAPTCHA=true.",
+      };
     }
 
     if (token === "mock-valid-captcha-token" || token === "pass") {
@@ -32,24 +43,29 @@ export class MockCaptchaVerifier implements CaptchaVerifier {
 }
 
 /**
- * Cloudflare Turnstile Adapter: Siap pakai untuk lingkungan produksi.
+ * Cloudflare Turnstile Adapter: Verifier produksi sesungguhnya.
  */
 export class CloudflareTurnstileVerifier implements CaptchaVerifier {
   private secretKey: string;
 
-  constructor() {
-    this.secretKey = process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY || "";
+  constructor(secretKey?: string) {
+    this.secretKey = secretKey ?? (process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY || "");
   }
 
   async verify(token?: string, remoteIp?: string): Promise<CaptchaVerifyResult> {
-    if (!token) {
-      return { success: false, error: "Token captcha Turnstile tidak ditemukan." };
+    // 2.b: Tanpa secret Turnstile di produksi, verifikasi HARUS gagal tertutup (fail closed)
+    if (!this.secretKey) {
+      if (process.env.NODE_ENV === "production") {
+        return {
+          success: false,
+          error: "CLOUDFLARE_TURNSTILE_SECRET_KEY tidak terkonfigurasi di produksi (gagal tertutup / fail-closed).",
+        };
+      }
+      return new MockCaptchaVerifier().verify(token, remoteIp);
     }
 
-    if (!this.secretKey) {
-      // Jika secret key belum diset di env, fallback ke MockVerifier dengan peringatan
-      console.warn("CLOUDFLARE_TURNSTILE_SECRET_KEY belum diset. Menggunakan MockCaptchaVerifier fallback.");
-      return new MockCaptchaVerifier().verify(token, remoteIp);
+    if (!token) {
+      return { success: false, error: "Token captcha Turnstile tidak ditemukan." };
     }
 
     try {
@@ -89,7 +105,7 @@ export class CloudflareTurnstileVerifier implements CaptchaVerifier {
 }
 
 export function getCaptchaVerifier(): CaptchaVerifier {
-  if (process.env.CAPTCHA_PROVIDER === "turnstile" || process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY) {
+  if (process.env.NODE_ENV === "production" || process.env.CAPTCHA_PROVIDER === "turnstile" || process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY) {
     return new CloudflareTurnstileVerifier();
   }
   return new MockCaptchaVerifier();

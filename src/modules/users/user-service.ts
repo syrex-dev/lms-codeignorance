@@ -1,3 +1,16 @@
+
+/**
+ * 4. Password RANDOM: CSPRNG minimal 12 karakter tanpa karakter ambigu (0/O/1/l/I) dan tanpa prefiks tetap
+ */
+export function generateSecureRandomPassword(length = 12): string {
+  const chars = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%^&*";
+  let pwd = "";
+  const bytes = crypto.randomBytes(length);
+  for (let i = 0; i < length; i++) {
+    pwd += chars[bytes[i] % chars.length];
+  }
+  return pwd;
+}
 import { prisma } from "@/lib/db/prisma";
 import { withTenantTransaction } from "@/lib/db/tenant-prisma";
 import { hashPassword } from "@/lib/security/password-policy";
@@ -94,8 +107,7 @@ export class UserService {
 
       if (institution.initialPasswordMode === "RANDOM") {
         // Mode RANDOM: Buat password acak 8 karakter
-        const randomHex = crypto.randomBytes(4).toString("hex");
-        initialPasswordPlain = `Pwd${randomHex}!1`;
+        initialPasswordPlain = generateSecureRandomPassword(12);
         passwordToHash = initialPasswordPlain;
       } else {
         // Mode SAME_AS_ID (default)

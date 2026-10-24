@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { withTenantTransaction } from "@/lib/db/tenant-prisma";
 import { maskPhoneNumber } from "@/lib/security/phone";
 import OnboardingForm from "./onboarding-form";
+import { ShieldCheck } from "lucide-react";
 
 interface OnboardingPageProps {
   params: Promise<{ tenant: string }>;
@@ -22,11 +23,11 @@ export default async function OnboardingPage({ params }: OnboardingPageProps) {
     redirect(`/${tenant}/dashboard`);
   }
 
-  // Ambil data user & institusi dari database menggunakan transaksi RLS
   const tenantId = session.user.activeInstitutionId;
   if (!tenantId) {
     redirect(`/${tenant}/login`);
   }
+
   const user: any = await withTenantTransaction(tenantId, async (tenantDb: any) => {
     return tenantDb.user.findUnique({
       where: { id: session.user.id },
@@ -44,36 +45,36 @@ export default async function OnboardingPage({ params }: OnboardingPageProps) {
   const institution = user.institution;
   const isPhonePrefilled = Boolean(user.phoneE164);
   const maskedPhone = user.phoneE164 ? maskPhoneNumber(user.phoneE164) : null;
+  const primaryId = user.identifiers.find((i: any) => i.isPrimary)?.value || session.user.identifier || "";
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 selection:bg-indigo-500 selection:text-white">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8 backdrop-blur-xl relative overflow-hidden">
-        {/* Decorative background glow */}
-        <div className="absolute -top-24 -left-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold mb-3">
-            <span className="h-2 w-2 rounded-full bg-amber-400 animate-ping"></span>
-            Aktivasi Akun Pertama
+    <div className="min-h-screen bg-[#F6F7F9] flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        {/* Institutional Header */}
+        <div className="text-center">
+          <div className="w-10 h-10 rounded-[6px] bg-[#1F4E8C] text-white flex items-center justify-center mx-auto mb-2.5">
+            <ShieldCheck className="w-5 h-5" strokeWidth={1.75} />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            Selamat Datang, {user.fullName}
+          <span className="text-xs font-semibold text-[#1F4E8C] bg-[#EBF2FA] px-2.5 py-0.5 rounded-[4px]">
+            Aktivasi akun pengguna baru
+          </span>
+          <h1 className="text-xl font-semibold text-[#111827] mt-2 tracking-tight">
+            Selamat datang, {user.fullName}
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            {institution.name} ({user.identifiers.find((i: any) => i.isPrimary)?.value || session.user.identifier})
-          </p>
-          <p className="text-xs text-slate-500 mt-2">
-            Verifikasi nomor handphone Anda dan tetapkan password baru untuk mengamankan akun sebelum mulai menggunakan portal.
+          <p className="text-xs text-[#4B5563] mt-1 font-mono">
+            {institution.name} • {primaryId}
           </p>
         </div>
 
-        <OnboardingForm
-          tenantSlug={tenant}
-          isPhonePrefilled={isPhonePrefilled}
-          maskedPhone={maskedPhone}
-          initialPhone={user.phoneE164 || ""}
-        />
+        {/* Form Box */}
+        <div className="mt-5 bg-white py-6 px-6 sm:px-8 border border-[#E3E6EB] rounded-[6px] shadow-none">
+          <OnboardingForm
+            tenantSlug={tenant}
+            isPhonePrefilled={isPhonePrefilled}
+            maskedPhone={maskedPhone}
+            initialPhone={user.phoneE164 || ""}
+          />
+        </div>
       </div>
     </div>
   );

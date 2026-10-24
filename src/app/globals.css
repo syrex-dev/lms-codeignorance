@@ -1,67 +1,64 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --primary: #2563eb;
-  --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #2563eb;
-  --radius: 0.75rem;
-}
+  --background: #F6F7F9;
+  --foreground: #111827;
+  --card: #FFFFFF;
+  --card-foreground: #111827;
+  --popover: #FFFFFF;
+  --popover-foreground: #111827;
 
-.dark {
-  --background: #090d16;
-  --foreground: #f8fafc;
-  --card: #0f172a;
-  --card-foreground: #f8fafc;
-  --primary: #3b82f6;
-  --primary-foreground: #ffffff;
-  --secondary: #1e293b;
-  --secondary-foreground: #f8fafc;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --accent: #1e293b;
-  --accent-foreground: #f8fafc;
-  --destructive: #7f1d1d;
-  --destructive-foreground: #f8fafc;
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #3b82f6;
+  /* Tenant accent token (Default: Biru Tua Institusional #1F4E8C) */
+  --tenant-accent: #1F4E8C;
+  --tenant-accent-hover: #183E6F;
+  --tenant-accent-subtle: #EBF2FA;
+  --tenant-accent-foreground: #FFFFFF;
+
+  --muted: #F3F4F6;
+  --muted-foreground: #4B5563;
+  --border: #E3E6EB;
+  --input: #E3E6EB;
+  --ring: #1F4E8C;
+
+  /* Status Colors */
+  --success: #15803D;
+  --success-bg: #F0FDF4;
+  --success-border: #BBF7D0;
+  --warning: #B45309;
+  --warning-bg: #FFFBEB;
+  --warning-border: #FDE68A;
+  --danger: #B91C1C;
+  --danger-bg: #FEF2F2;
+  --danger-border: #FECACA;
+
+  --radius: 6px;
 }
 
 body {
-  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: var(--foreground);
-  background: var(--background);
+  background-color: var(--background);
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Glassmorphism utility */
-.glass-panel {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(226, 232, 240, 0.8);
+code, kbd, samp, pre {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
-.dark .glass-panel {
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(30, 41, 59, 0.8);
+/* Institutional Clean Utilities */
+.surface-card {
+  background-color: #FFFFFF;
+  border: 1px solid #E3E6EB;
+  border-radius: 6px;
 }
 
-/* Modern subtle scrollbar */
+.table-row-clean {
+  height: 44px;
+  border-bottom: 1px solid #E3E6EB;
+}
+
+/* Simple, flat, clean scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -72,10 +69,10 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 9999px;
+  background: #D1D5DB;
+  border-radius: 4px;
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: #334155;
+::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
 }

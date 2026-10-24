@@ -1,21 +1,25 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/providers/auth-provider";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const ibmPlexSans = IBM_Plex_Sans({
+  weight: ["400", "500", "600", "700"],
   subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const ibmPlexMono = IBM_Plex_Mono({
+  weight: ["400", "500", "600"],
   subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "LMS Terpadu - Sekolah & Kampus",
-  description: "Platform Learning Management System Terpadu untuk Sekolah dan Kampus dengan Modul PPDB/PMB",
+  title: "Sistem Informasi Akademik & LMS Institusi",
+  description: "Platform sistem informasi akademik dan manajemen pembelajaran terpadu multi-tenant.",
 };
 
 export default function RootLayout({
@@ -26,9 +30,9 @@ export default function RootLayout({
   return (
     <html
       lang="id"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${ibmPlexSans.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
+      <body className="min-h-full flex flex-col bg-[#F6F7F9] text-[#111827] font-sans">
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

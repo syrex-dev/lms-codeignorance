@@ -4,7 +4,28 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { getTerminology } from "@/lib/i18n/terminology";
+import { getTerminology, getRoleBadgeLabel } from "@/lib/i18n/terminology";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Badge } from "@/components/ui/badge";
+import {
+  FileText,
+  Paperclip,
+  Video,
+  ExternalLink,
+  ChevronUp,
+  ChevronDown,
+  Plus,
+  Trash2,
+  CheckCircle2,
+  Circle,
+  Eye,
+  Users,
+  BookOpen,
+  ArrowLeft,
+  Loader2,
+  X,
+} from "lucide-react";
 
 export default function ClassroomDetailPage() {
   const params = useParams();
@@ -194,25 +215,29 @@ export default function ClassroomDetailPage() {
 
   if (loading && !classDetail) {
     return (
-      <div className="space-y-6 animate-pulse">
-        <div className="h-8 bg-slate-800 rounded w-1/4"></div>
-        <div className="h-4 bg-slate-800 rounded w-1/2"></div>
-        <div className="h-64 bg-slate-900 rounded-2xl"></div>
+      <div className="space-y-4 animate-pulse">
+        <div className="h-6 bg-[#E3E6EB] rounded w-1/4"></div>
+        <div className="h-4 bg-[#E3E6EB] rounded w-1/2"></div>
+        <div className="h-48 bg-white border border-[#E3E6EB] rounded-[6px]"></div>
       </div>
     );
   }
 
   if (error || !classDetail) {
     return (
-      <div className="text-center py-16 bg-slate-900/40 border border-slate-800 rounded-2xl p-6">
-        <div className="text-4xl mb-3">⚠️</div>
-        <h2 className="text-base font-bold text-white">Akses Kelas Ditolak atau Kelas Tidak Ditemukan</h2>
-        <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">{error || "Objek kelas tidak tersedia."}</p>
+      <div className="text-center py-12 bg-white border border-[#E3E6EB] rounded-[6px] p-6">
+        <h2 className="text-base font-semibold text-[#111827]">
+          Akses kelas ditolak atau kelas tidak ditemukan
+        </h2>
+        <p className="text-xs text-[#4B5563] mt-1 max-w-md mx-auto">
+          {error || "Objek kelas tidak tersedia atau sesi Anda tidak memiliki hak akses."}
+        </p>
         <Link
           href={`/${tenantSlug}/classes`}
-          className="inline-block mt-4 text-xs font-semibold text-indigo-400 hover:underline"
+          className="inline-flex items-center gap-1.5 mt-4 text-xs font-medium text-[#1F4E8C] hover:underline"
         >
-          ← Kembali ke Daftar {t.classRoom}
+          <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.5} />
+          <span>Kembali ke daftar {t.classRoom.toLowerCase()}</span>
         </Link>
       </div>
     );
@@ -223,39 +248,40 @@ export default function ClassroomDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Banner & Breadcrumb */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800 rounded-3xl p-6 relative overflow-hidden">
+      {/* Top Breadcrumb & Class Header */}
+      <div className="bg-white border border-[#E3E6EB] rounded-[6px] p-5 shadow-none">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold text-indigo-400 mb-1">
+            <div className="flex items-center gap-2 text-xs text-[#4B5563] mb-1">
               <Link href={`/${tenantSlug}/classes`} className="hover:underline">
                 {t.classRoom}
               </Link>
               <span>/</span>
-              <span>{classDetail.code}</span>
+              <span className="font-mono font-medium text-[#111827]">{classDetail.code}</span>
             </div>
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">
+            <h1 className="text-2xl font-semibold text-[#111827] tracking-tight">
               {classDetail.name}
             </h1>
-            <p className="text-xs text-slate-400 mt-1">
-              {classDetail.academicTerm?.name} • {classDetail.roomName ? `Ruang: ${classDetail.roomName}` : t.institutionLabel} • {classDetail.enrollmentCount} {t.student} Terdaftar
+            <p className="text-xs text-[#4B5563] mt-1">
+              {classDetail.academicTerm?.name} • {classDetail.roomName ? `Ruang: ${classDetail.roomName}` : t.institutionLabel} • {classDetail.enrollmentCount} {t.student.toLowerCase()} terdaftar
             </p>
           </div>
 
-          {/* Mode Pratinjau untuk Pengajar */}
+          {/* Mode Pratinjau Siswa untuk Guru */}
           {isTeacher && (
-            <div className="flex items-center gap-3 bg-slate-950/80 border border-slate-800 px-4 py-2.5 rounded-2xl">
-              <span className="text-xs font-semibold text-slate-300">Pratinjau Siswa</span>
+            <div className="flex items-center gap-3 bg-[#F6F7F9] border border-[#E3E6EB] px-3.5 py-2 rounded-[6px] self-start md:self-auto">
+              <span className="text-xs font-medium text-[#4B5563]">Pratinjau sebagai siswa</span>
               <button
                 type="button"
                 onClick={() => setPreviewAsStudent(!previewAsStudent)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  previewAsStudent ? "bg-indigo-600" : "bg-slate-700"
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
+                  previewAsStudent ? "bg-[#1F4E8C]" : "bg-[#CBD5E1]"
                 }`}
+                aria-label="Toggle pratinjau siswa"
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    previewAsStudent ? "translate-x-6" : "translate-x-1"
+                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                    previewAsStudent ? "translate-x-4" : "translate-x-1"
                   }`}
                 />
               </button>
@@ -263,104 +289,102 @@ export default function ClassroomDetailPage() {
           )}
         </div>
 
-        {/* Progress Bar (Untuk Siswa atau Mode Pratinjau) */}
+        {/* 4px Progress Bar (Siswa atau Mode Pratinjau) */}
         {(classDetail.isEnrolled || previewAsStudent) && (
-          <div className="mt-5 pt-4 border-t border-slate-800/80">
-            <div className="flex items-center justify-between text-xs mb-1.5">
-              <span className="font-semibold text-slate-300">Progres Belajar Anda</span>
-              <span className="font-mono font-bold text-indigo-400">{classDetail.progressPercentage}% Selesai</span>
+          <div className="mt-4 pt-3 border-t border-[#E3E6EB]">
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="text-[#4B5563]">Progres belajar Anda</span>
+              <span className="font-mono font-semibold text-[#1F4E8C]">
+                {classDetail.progressPercentage}%
+              </span>
             </div>
-            <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+            <div className="w-full bg-[#E5E7EB] rounded-full h-1 overflow-hidden">
               <div
-                className="bg-indigo-500 h-2 rounded-full transition-all duration-500"
+                className="bg-[#1F4E8C] h-1 rounded-full transition-all duration-300"
                 style={{ width: `${classDetail.progressPercentage}%` }}
-              ></div>
+              />
             </div>
           </div>
         )}
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-800 overflow-x-auto pb-1">
+      {/* Underline Tabs Navigation */}
+      <div className="border-b border-[#E3E6EB] flex items-center gap-6 text-sm">
         <button
+          type="button"
           onClick={() => setActiveTab("BERANDA")}
-          className={`py-2 px-4 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+          className={`pb-2.5 -mb-px flex items-center gap-2 text-xs font-medium transition-colors border-b-2 ${
             activeTab === "BERANDA"
-              ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30"
-              : "text-slate-400 hover:text-white"
+              ? "border-[#1F4E8C] text-[#1F4E8C] font-semibold"
+              : "border-transparent text-[#4B5563] hover:text-[#111827]"
           }`}
         >
-          <span>🏠</span> Beranda
+          <BookOpen className="w-4 h-4" strokeWidth={1.5} />
+          <span>Beranda</span>
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab("MATERI")}
-          className={`py-2 px-4 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+          className={`pb-2.5 -mb-px flex items-center gap-2 text-xs font-medium transition-colors border-b-2 ${
             activeTab === "MATERI"
-              ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30"
-              : "text-slate-400 hover:text-white"
+              ? "border-[#1F4E8C] text-[#1F4E8C] font-semibold"
+              : "border-transparent text-[#4B5563] hover:text-[#111827]"
           }`}
         >
-          <span>📖</span> Materi Pembelajaran
+          <FileText className="w-4 h-4" strokeWidth={1.5} />
+          <span>Materi Pembelajaran</span>
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab("ANGGOTA")}
-          className={`py-2 px-4 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+          className={`pb-2.5 -mb-px flex items-center gap-2 text-xs font-medium transition-colors border-b-2 ${
             activeTab === "ANGGOTA"
-              ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30"
-              : "text-slate-400 hover:text-white"
+              ? "border-[#1F4E8C] text-[#1F4E8C] font-semibold"
+              : "border-transparent text-[#4B5563] hover:text-[#111827]"
           }`}
         >
-          <span>👥</span> Anggota Kelas
+          <Users className="w-4 h-4" strokeWidth={1.5} />
+          <span>Anggota Kelas</span>
         </button>
-
-        {/* Placeholder Tabs (Tugas, Kuis, Presensi) */}
-        {["Tugas", "Kuis", "Diskusi", "Presensi", "Nilai"].map((tab) => (
-          <button
-            key={tab}
-            disabled
-            className="py-2 px-3 rounded-xl text-xs font-medium text-slate-600 cursor-not-allowed flex items-center gap-1.5 opacity-60"
-          >
-            <span>{tab}</span>
-            <span className="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.2 rounded font-mono">Fase 4</span>
-          </button>
-        ))}
       </div>
 
       {/* TAB 1: BERANDA */}
       {activeTab === "BERANDA" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-6">
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-3">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <span>📌</span> Informasi & Deskripsi {t.course}
+          <div className="md:col-span-2 space-y-4">
+            <div className="bg-white border border-[#E3E6EB] rounded-[6px] p-5 shadow-none space-y-2">
+              <h3 className="text-sm font-semibold text-[#111827]">
+                Informasi & deskripsi {t.course.toLowerCase()}
               </h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                {classDetail.description || "Tidak ada deskripsi pengantar untuk kelas ini."}
+              <p className="text-xs text-[#4B5563] leading-relaxed">
+                {classDetail.description || `Mata pelajaran/kuliah ${classDetail.name} pada periode akademik berjalan.`}
               </p>
             </div>
 
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-3">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <span>📑</span> Topik Pembelajaran Terbaru
+            <div className="bg-white border border-[#E3E6EB] rounded-[6px] p-5 shadow-none space-y-3">
+              <h3 className="text-sm font-semibold text-[#111827]">
+                Topik pembelajaran
               </h3>
               {classDetail.topics.length === 0 ? (
-                <p className="text-xs text-slate-500 py-4 text-center">Belum ada topik materi yang diterbitkan.</p>
+                <p className="text-xs text-[#6B7280] py-4 text-center">
+                  Belum ada topik materi yang diterbitkan.
+                </p>
               ) : (
-                <div className="space-y-2">
-                  {classDetail.topics.slice(0, 3).map((topic: any, idx: number) => (
+                <div className="divide-y divide-[#E3E6EB]">
+                  {classDetail.topics.slice(0, 4).map((topic: any, idx: number) => (
                     <div
                       key={topic.id}
                       onClick={() => setActiveTab("MATERI")}
-                      className="p-3 bg-slate-950/60 border border-slate-800/80 rounded-xl hover:border-slate-700 cursor-pointer transition flex items-center justify-between"
+                      className="py-2.5 flex items-center justify-between cursor-pointer hover:bg-[#F6F7F9] px-2 rounded transition"
                     >
                       <div>
-                        <span className="text-[10px] font-mono text-indigo-400 font-semibold uppercase">
+                        <span className="text-[11px] font-mono font-medium text-[#1F4E8C]">
                           {t.meeting} {topic.meetingNumber || idx + 1}
                         </span>
-                        <div className="text-xs font-bold text-white">{topic.title}</div>
+                        <div className="text-xs font-medium text-[#111827]">{topic.title}</div>
                       </div>
-                      <span className="text-xs text-slate-500">
-                        {topic.materials?.length || 0} Materi →
+                      <span className="text-xs text-[#6B7280]">
+                        {topic.materials?.length || 0} materi
                       </span>
                     </div>
                   ))}
@@ -369,20 +393,20 @@ export default function ClassroomDetailPage() {
             </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <span>👨‍🏫</span> {t.teacher} Pengampu
+          <div className="space-y-4">
+            <div className="bg-white border border-[#E3E6EB] rounded-[6px] p-5 shadow-none space-y-3">
+              <h3 className="text-sm font-semibold text-[#111827]">
+                {t.teacher} pengampu
               </h3>
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {classDetail.instructors.map((inst: any) => (
-                  <div key={inst.id} className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-indigo-600/30 border border-indigo-500 flex items-center justify-center font-bold text-xs text-indigo-300">
+                  <div key={inst.id} className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-full bg-[#1F4E8C] text-white flex items-center justify-center font-semibold text-xs shrink-0">
                       {inst.instructor.fullName.charAt(0)}
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-white">{inst.instructor.fullName}</div>
-                      <div className="text-[10px] text-slate-400 font-medium">
+                      <div className="text-xs font-medium text-[#111827]">{inst.instructor.fullName}</div>
+                      <div className="text-[11px] text-[#6B7280]">
                         {inst.isPrimary ? `${t.teacher} Utama` : `${t.teacher} Pendamping`}
                       </div>
                     </div>
@@ -396,86 +420,80 @@ export default function ClassroomDetailPage() {
 
       {/* TAB 2: MATERI PEMBELAJARAN */}
       {activeTab === "MATERI" && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Action Bar Guru */}
           {canEdit && (
-            <div className="flex items-center justify-between bg-slate-900/60 border border-slate-800 p-3 rounded-2xl">
-              <span className="text-xs text-slate-400">Kelola kurikulum dan materi pembelajaran:</span>
+            <div className="flex items-center justify-between bg-white border border-[#E3E6EB] p-3 rounded-[6px]">
+              <span className="text-xs text-[#4B5563]">Kelola kurikulum dan materi pembelajaran:</span>
               <button
                 type="button"
                 onClick={() => setShowTopicModal(true)}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-1.5 px-3 rounded-xl text-xs transition flex items-center gap-1.5 shadow"
+                className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#1F4E8C] hover:bg-[#183E6F] text-white text-xs font-medium rounded-[6px] transition focus:outline-none focus:ring-2 focus:ring-[#1F4E8C]"
               >
-                <span>➕</span> Tambah Topik
+                <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
+                <span>Tambah Topik</span>
               </button>
             </div>
           )}
 
           {/* Daftar Topik & Materi */}
           {classDetail.topics.length === 0 ? (
-            <div className="text-center py-16 bg-slate-900/30 border border-dashed border-slate-800 rounded-2xl p-6">
-              <div className="text-4xl mb-3">📚</div>
-              <h3 className="text-sm font-bold text-white">Belum Ada Topik Pembelajaran</h3>
-              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                {canEdit
+            <EmptyState
+              title="Belum ada topik pembelajaran"
+              description={
+                canEdit
                   ? "Klik tombol Tambah Topik di atas untuk mulai membuat kurikulum kelas ini."
-                  : "Pengajar belum menerbitkan materi pembelajaran."}
-              </p>
-            </div>
+                  : "Pengajar belum menerbitkan materi pembelajaran untuk kelas ini."
+              }
+            />
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {classDetail.topics.map((topic: any, topicIdx: number) => (
                 <div
                   key={topic.id}
-                  className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-sm"
+                  className="bg-white border border-[#E3E6EB] rounded-[6px] p-4 space-y-3 shadow-none"
                 >
                   {/* Topic Header */}
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-[#E3E6EB]">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] bg-indigo-950 text-indigo-300 font-mono font-bold px-2 py-0.5 rounded">
+                        <span className="text-[11px] font-mono px-2 py-0.5 bg-[#F6F7F9] border border-[#E3E6EB] rounded text-[#111827]">
                           {t.meeting} {topic.meetingNumber || topicIdx + 1}
                         </span>
                         {canEdit && (
-                          <span
-                            className={`text-[10px] px-2 py-0.5 rounded font-bold ${
-                              topic.status === "PUBLISHED"
-                                ? "bg-emerald-950 text-emerald-400"
-                                : topic.status === "DRAFT"
-                                ? "bg-amber-950 text-amber-400"
-                                : "bg-blue-950 text-blue-400"
-                            }`}
-                          >
-                            {topic.status}
+                          <span className={`text-[11px] font-medium ${
+                            topic.status === "PUBLISHED" ? "text-[#15803D]" : topic.status === "DRAFT" ? "text-[#B45309]" : "text-[#1F4E8C]"
+                          }`}>
+                            {topic.status === "PUBLISHED" ? "Terbit" : topic.status === "DRAFT" ? "Draf" : "Terjadwal"}
                           </span>
                         )}
                       </div>
-                      <h3 className="text-base font-bold text-white mt-1">{topic.title}</h3>
+                      <h3 className="text-sm font-semibold text-[#111827] mt-1">{topic.title}</h3>
                       {topic.description && (
-                        <p className="text-xs text-slate-400 mt-0.5">{topic.description}</p>
+                        <p className="text-xs text-[#4B5563] mt-0.5">{topic.description}</p>
                       )}
                     </div>
 
                     {/* Topic Actions (Guru) */}
                     {canEdit && (
-                      <div className="flex items-center gap-1.5 self-end md:self-auto">
+                      <div className="flex items-center gap-1.5 self-end sm:self-auto">
                         <button
                           type="button"
                           onClick={() => handleMoveTopic(topicIdx, "UP")}
                           disabled={topicIdx === 0}
-                          title="Naikkan Urutan"
-                          className="p-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 rounded-lg text-xs"
+                          title="Naikkan urutan"
+                          className="p-1 text-[#6B7280] hover:text-[#111827] disabled:opacity-30 rounded border border-[#E3E6EB]"
                         >
-                          ⬆️
+                          <ChevronUp className="w-3.5 h-3.5" strokeWidth={1.5} />
                         </button>
                         <button
                           type="button"
                           onClick={() => handleMoveTopic(topicIdx, "DOWN")}
                           disabled={topicIdx === classDetail.topics.length - 1}
-                          title="Turunkan Urutan"
-                          className="p-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 rounded-lg text-xs"
+                          title="Turunkan urutan"
+                          className="p-1 text-[#6B7280] hover:text-[#111827] disabled:opacity-30 rounded border border-[#E3E6EB]"
                         >
-                          ⬇️
+                          <ChevronDown className="w-3.5 h-3.5" strokeWidth={1.5} />
                         </button>
                         <button
                           type="button"
@@ -483,17 +501,18 @@ export default function ClassroomDetailPage() {
                             setSelectedTopicId(topic.id);
                             setShowMaterialModal(true);
                           }}
-                          className="bg-indigo-600/80 hover:bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium transition"
+                          className="inline-flex items-center gap-1 h-7 px-2.5 bg-[#1F4E8C] hover:bg-[#183E6F] text-white rounded-[4px] text-xs font-medium transition"
                         >
-                          ➕ Materi
+                          <Plus className="w-3 h-3" strokeWidth={1.75} />
+                          <span>Tambah materi</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDeleteTopic(topic.id)}
-                          className="text-red-400 hover:text-red-300 p-1.5 text-xs"
-                          title="Hapus Topik"
+                          className="p-1 text-[#B91C1C] hover:text-[#7F1D1D] rounded border border-[#E3E6EB]"
+                          title="Hapus topik"
                         >
-                          🗑️
+                          <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                         </button>
                       </div>
                     )}
@@ -501,40 +520,40 @@ export default function ClassroomDetailPage() {
 
                   {/* Materials List */}
                   {topic.materials.length === 0 ? (
-                    <p className="text-xs text-slate-500 py-3 text-center italic">
+                    <p className="text-xs text-[#6B7280] py-2 text-center italic">
                       Belum ada materi dalam topik ini.
                     </p>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {topic.materials.map((mat: any) => {
                         const isDone = mat.progress?.isCompleted;
 
                         return (
                           <div
                             key={mat.id}
-                            className={`p-4 rounded-xl border transition ${
+                            className={`p-3 rounded-[6px] border transition ${
                               isDone
-                                ? "bg-slate-950/80 border-emerald-900/50"
-                                : "bg-slate-950/50 border-slate-800 hover:border-slate-700"
+                                ? "bg-[#F0FDF4]/50 border-[#BBF7D0]"
+                                : "bg-white border-[#E3E6EB] hover:border-[#CBD5E1]"
                             }`}
                           >
                             <div className="flex items-start justify-between gap-3">
-                              <div className="space-y-1.5 flex-1">
+                              <div className="space-y-1 flex-1">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-xs">
-                                    {mat.type === "RICH_TEXT" && "📝"}
-                                    {mat.type === "FILE" && "📁"}
-                                    {mat.type === "VIDEO_LINK" && "🎬"}
-                                    {mat.type === "EXTERNAL_LINK" && "🔗"}
+                                  <span className="text-[#6B7280]">
+                                    {mat.type === "RICH_TEXT" && <FileText className="w-4 h-4" strokeWidth={1.5} />}
+                                    {mat.type === "FILE" && <Paperclip className="w-4 h-4" strokeWidth={1.5} />}
+                                    {mat.type === "VIDEO_LINK" && <Video className="w-4 h-4" strokeWidth={1.5} />}
+                                    {mat.type === "EXTERNAL_LINK" && <ExternalLink className="w-4 h-4" strokeWidth={1.5} />}
                                   </span>
-                                  <h4 className="text-sm font-bold text-white">{mat.title}</h4>
+                                  <h4 className="text-xs font-semibold text-[#111827]">{mat.title}</h4>
                                   {mat.isRequired && (
-                                    <span className="text-[10px] bg-red-950/80 text-red-400 font-semibold px-1.5 py-0.2 rounded">
+                                    <span className="text-[10px] text-[#B91C1C] bg-[#FEF2F2] border border-[#FECACA] px-1.5 py-0.2 rounded">
                                       Wajib
                                     </span>
                                   )}
                                   {canEdit && mat.status !== "PUBLISHED" && (
-                                    <span className="text-[10px] bg-amber-950 text-amber-300 px-1.5 py-0.2 rounded font-mono">
+                                    <span className="text-[10px] text-[#B45309] bg-[#FFFBEB] border border-[#FDE68A] px-1.5 py-0.2 rounded font-mono">
                                       {mat.status}
                                     </span>
                                   )}
@@ -543,15 +562,15 @@ export default function ClassroomDetailPage() {
                                 {/* Rich Text Content (Sanitized) */}
                                 {mat.type === "RICH_TEXT" && mat.content && (
                                   <div
-                                    className="text-xs text-slate-300 leading-relaxed prose prose-invert max-w-none pt-1"
+                                    className="text-xs text-[#374151] leading-relaxed pt-1"
                                     dangerouslySetInnerHTML={{ __html: mat.content }}
                                   />
                                 )}
 
-                                {/* Video Player (YouTube Safe Embed) */}
+                                {/* Video Player */}
                                 {mat.type === "VIDEO_LINK" && mat.videoUrl && (
                                   <div className="pt-2">
-                                    <div className="relative aspect-video max-w-md rounded-xl overflow-hidden border border-slate-800">
+                                    <div className="relative aspect-video max-w-md rounded-[6px] overflow-hidden border border-[#E3E6EB]">
                                       <iframe
                                         src={mat.videoUrl}
                                         title={mat.title}
@@ -570,26 +589,26 @@ export default function ClassroomDetailPage() {
                                       href={mat.url}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-xs text-indigo-400 hover:underline flex items-center gap-1 font-semibold"
+                                      className="text-xs text-[#1F4E8C] hover:underline inline-flex items-center gap-1 font-medium"
                                     >
-                                      <span>Buka Tautan: {mat.url}</span>
-                                      <span>↗</span>
+                                      <span>Buka tautan: {mat.url}</span>
+                                      <ExternalLink className="w-3 h-3" strokeWidth={1.5} />
                                     </a>
                                   </div>
                                 )}
 
                                 {/* Download Files */}
                                 {mat.files && mat.files.length > 0 && (
-                                  <div className="pt-2 space-y-1.5">
+                                  <div className="pt-2 space-y-1">
                                     {mat.files.map((f: any) => (
                                       <a
                                         key={f.id}
                                         href={f.downloadUrl}
-                                        className="inline-flex items-center gap-2 bg-slate-800/80 hover:bg-slate-800 text-xs text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition"
+                                        className="inline-flex items-center gap-2 bg-[#F6F7F9] hover:bg-[#E5E7EB] text-xs text-[#111827] px-2.5 py-1 rounded-[4px] border border-[#E3E6EB] transition"
                                       >
-                                        <span>⬇️</span>
+                                        <Paperclip className="w-3.5 h-3.5 text-[#6B7280]" strokeWidth={1.5} />
                                         <span className="font-medium">{f.fileName}</span>
-                                        <span className="text-[10px] text-slate-400">
+                                        <span className="text-[11px] text-[#6B7280]">
                                           ({Math.round(f.fileSize / 1024)} KB)
                                         </span>
                                       </a>
@@ -599,18 +618,28 @@ export default function ClassroomDetailPage() {
                               </div>
 
                               {/* Student Checkmark / Action */}
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 shrink-0">
                                 {(classDetail.isEnrolled || previewAsStudent) && (
                                   <button
                                     type="button"
                                     onClick={() => handleToggleComplete(mat.id)}
-                                    className={`text-xs px-3 py-1.5 rounded-xl font-medium transition flex items-center gap-1.5 ${
+                                    className={`text-xs px-2.5 py-1 rounded-[4px] font-medium transition inline-flex items-center gap-1.5 ${
                                       isDone
-                                        ? "bg-emerald-950 text-emerald-300 border border-emerald-800"
-                                        : "bg-slate-800 hover:bg-slate-700 text-slate-300"
+                                        ? "bg-[#F0FDF4] text-[#15803D] border border-[#BBF7D0]"
+                                        : "bg-white hover:bg-[#F6F7F9] text-[#4B5563] border border-[#E3E6EB]"
                                     }`}
                                   >
-                                    <span>{isDone ? "✓ Selesai" : "Tandai Selesai"}</span>
+                                    {isDone ? (
+                                      <>
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-[#15803D]" strokeWidth={1.75} />
+                                        <span>✓ Selesai</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Circle className="w-3.5 h-3.5 text-[#9CA3AF]" strokeWidth={1.5} />
+                                        <span>Tandai Selesai</span>
+                                      </>
+                                    )}
                                   </button>
                                 )}
 
@@ -618,10 +647,10 @@ export default function ClassroomDetailPage() {
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteMaterial(mat.id)}
-                                    className="text-red-400 hover:text-red-300 p-1 text-xs"
-                                    title="Hapus Materi"
+                                    className="p-1 text-[#B91C1C] hover:text-[#7F1D1D] rounded border border-[#E3E6EB]"
+                                    title="Hapus materi"
                                   >
-                                    🗑️
+                                    <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                                   </button>
                                 )}
                               </div>
@@ -638,74 +667,93 @@ export default function ClassroomDetailPage() {
         </div>
       )}
 
-      {/* TAB 3: ANGGOTA KELAS (Tanpa Data Pribadi PII) */}
+      {/* TAB 3: ANGGOTA KELAS (Tanpa Data PII) */}
       {activeTab === "ANGGOTA" && (
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-4">
-          <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
-            <h3 className="text-base font-bold text-white">Daftar Anggota Kelas</h3>
-            <span className="text-xs text-slate-400 font-mono">
+        <div className="bg-white border border-[#E3E6EB] rounded-[6px] overflow-hidden shadow-none">
+          <div className="px-5 py-3 border-b border-[#E3E6EB] flex items-center justify-between bg-[#F6F7F9]">
+            <h3 className="text-xs font-semibold text-[#111827]">Daftar anggota kelas</h3>
+            <span className="text-xs text-[#6B7280]">
               Total: {classDetail.members?.length || 0} orang
             </span>
           </div>
 
-          <div className="divide-y divide-slate-800/80">
-            {classDetail.members?.map((member: any) => (
-              <div key={member.id} className="py-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ${
-                      member.role === "PENGAJAR"
-                        ? "bg-indigo-600/30 border border-indigo-500 text-indigo-300"
-                        : "bg-slate-800 border border-slate-700 text-slate-300"
-                    }`}
-                  >
-                    {member.fullName.charAt(0)}
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-white">{member.fullName}</div>
-                    <div className="text-[10px] text-slate-400">
-                      {member.role === "PENGAJAR" ? t.teacher : t.student}
-                    </div>
-                  </div>
-                </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead className="bg-[#F6F7F9] border-b border-[#E3E6EB] text-[#4B5563]">
+                <tr className="h-10">
+                  <th className="px-4 font-semibold">Nama anggota</th>
+                  <th className="px-4 font-semibold">Peran di kelas</th>
+                  <th className="px-4 font-semibold">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E3E6EB]">
+                {classDetail.members?.map((member: any) => {
+                  const isTeacherMember = member.role === "PENGAJAR";
+                  const roleName = isTeacherMember ? t.teacher : t.student;
 
-                <span
-                  className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold ${
-                    member.role === "PENGAJAR"
-                      ? "bg-indigo-950 text-indigo-300 border border-indigo-800"
-                      : "bg-slate-800 text-slate-400"
-                  }`}
-                >
-                  {member.role === "PENGAJAR" ? (member.isPrimary ? `${t.teacher} Utama` : t.teacher) : t.student}
-                </span>
-              </div>
-            ))}
+                  return (
+                    <tr key={member.id} className="h-11 hover:bg-[#F9FAFB] transition-colors">
+                      <td className="px-4 font-medium text-[#111827]">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-6 h-6 rounded-full bg-[#1F4E8C] text-white flex items-center justify-center text-[10px] font-semibold shrink-0">
+                            {member.fullName.charAt(0)}
+                          </div>
+                          <span>{member.fullName}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 text-[#4B5563]">
+                        {isTeacherMember ? (member.isPrimary ? `${t.teacher} Utama` : t.teacher) : t.student}
+                      </td>
+                      <td className="px-4">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-[4px] text-[11px] font-medium border ${
+                          isTeacherMember
+                            ? "bg-[#EBF2FA] text-[#1F4E8C] border-[#BFDBFE]"
+                            : "bg-[#F3F4F6] text-[#374151] border-[#E5E7EB]"
+                        }`}>
+                          {roleName}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
       {/* MODAL TAMBAH TOPIK */}
       {showTopicModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
-            <h3 className="text-base font-bold text-white">Tambah Topik Pembelajaran Baru</h3>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-[#E3E6EB] rounded-[6px] p-6 max-w-md w-full space-y-4 shadow-sm">
+            <div className="flex items-center justify-between border-b border-[#E3E6EB] pb-3">
+              <h3 className="text-sm font-semibold text-[#111827]">Tambah Topik Pembelajaran Baru</h3>
+              <button
+                type="button"
+                onClick={() => setShowTopicModal(false)}
+                className="text-[#6B7280] hover:text-[#111827]"
+              >
+                <X className="w-4 h-4" strokeWidth={1.5} />
+              </button>
+            </div>
+
             <form onSubmit={handleCreateTopic} className="space-y-3">
               <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">
-                  Nomor {t.meeting} (Opsional)
+                <label className="text-xs font-medium text-[#111827] block mb-1">
+                  Nomor {t.meeting} (opsional)
                 </label>
                 <input
                   type="number"
                   value={topicMeeting}
                   onChange={(e) => setTopicMeeting(e.target.value)}
                   placeholder="Contoh: 1"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                  className="w-full h-9 px-3 text-xs bg-white text-[#111827] border border-[#E3E6EB] rounded-[6px] focus:outline-none focus:ring-2 focus:ring-[#1F4E8C]"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">
-                  Judul Topik *
+                <label className="text-xs font-medium text-[#111827] block mb-1">
+                  Judul topik *
                 </label>
                 <input
                   type="text"
@@ -713,47 +761,35 @@ export default function ClassroomDetailPage() {
                   value={topicTitle}
                   onChange={(e) => setTopicTitle(e.target.value)}
                   placeholder="Contoh: Pengenalan Dasar & Silabus"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                  className="w-full h-9 px-3 text-xs bg-white text-[#111827] border border-[#E3E6EB] rounded-[6px] focus:outline-none focus:ring-2 focus:ring-[#1F4E8C]"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">
-                  Deskripsi / Capaian Pembelajaran
+                <label className="text-xs font-medium text-[#111827] block mb-1">
+                  Deskripsi capaian pembelajaran
                 </label>
                 <textarea
                   rows={2}
                   value={topicDesc}
                   onChange={(e) => setTopicDesc(e.target.value)}
                   placeholder="Ringkasan target dan materi yang dibahas..."
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                  className="w-full p-2.5 text-xs bg-white text-[#111827] border border-[#E3E6EB] rounded-[6px] focus:outline-none focus:ring-2 focus:ring-[#1F4E8C]"
                 />
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">Status Publikasi</label>
-                <select
-                  value={topicStatus}
-                  onChange={(e) => setTopicStatus(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
-                >
-                  <option value="PUBLISHED">PUBLISHED (Langsung Terbit)</option>
-                  <option value="DRAFT">DRAFT (Disimpan Pribadi)</option>
-                </select>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3">
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#E3E6EB]">
                 <button
                   type="button"
                   onClick={() => setShowTopicModal(false)}
-                  className="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white"
+                  className="h-8 px-3 text-xs text-[#4B5563] hover:text-[#111827] border border-[#E3E6EB] rounded-[6px]"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  disabled={actionLoading}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-xl text-xs font-semibold"
+                  disabled={actionLoading || !topicTitle.trim()}
+                  className="h-8 px-3 text-xs font-medium text-white bg-[#1F4E8C] hover:bg-[#183E6F] rounded-[6px] disabled:opacity-50"
                 >
                   {actionLoading ? "Menyimpan..." : "Simpan Topik"}
                 </button>
@@ -765,131 +801,127 @@ export default function ClassroomDetailPage() {
 
       {/* MODAL TAMBAH MATERI */}
       {showMaterialModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-lg w-full space-y-4 shadow-2xl">
-            <h3 className="text-base font-bold text-white">Tambah Materi Pembelajaran</h3>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-[#E3E6EB] rounded-[6px] p-6 max-w-lg w-full space-y-4 shadow-sm max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-[#E3E6EB] pb-3">
+              <h3 className="text-sm font-semibold text-[#111827]">Tambah Materi Pembelajaran</h3>
+              <button
+                type="button"
+                onClick={() => setShowMaterialModal(false)}
+                className="text-[#6B7280] hover:text-[#111827]"
+              >
+                <X className="w-4 h-4" strokeWidth={1.5} />
+              </button>
+            </div>
+
             <form onSubmit={handleCreateMaterial} className="space-y-3">
               <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">Tipe Materi</label>
+                <label className="text-xs font-medium text-[#111827] block mb-1">Tipe materi</label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setMaterialType("RICH_TEXT")}
-                    className={`p-2 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 ${
+                    className={`h-8 px-2 text-xs font-medium rounded-[4px] border transition ${
                       materialType === "RICH_TEXT"
-                        ? "bg-indigo-950 border-indigo-500 text-indigo-300"
-                        : "bg-slate-950 border-slate-800 text-slate-400"
+                        ? "border-[#1F4E8C] bg-[#EBF2FA] text-[#1F4E8C]"
+                        : "border-[#E3E6EB] bg-white text-[#4B5563]"
                     }`}
                   >
-                    <span>📝</span> Teks Kaya
+                    Teks / Artikel
                   </button>
                   <button
                     type="button"
                     onClick={() => setMaterialType("VIDEO_LINK")}
-                    className={`p-2 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 ${
+                    className={`h-8 px-2 text-xs font-medium rounded-[4px] border transition ${
                       materialType === "VIDEO_LINK"
-                        ? "bg-indigo-950 border-indigo-500 text-indigo-300"
-                        : "bg-slate-950 border-slate-800 text-slate-400"
+                        ? "border-[#1F4E8C] bg-[#EBF2FA] text-[#1F4E8C]"
+                        : "border-[#E3E6EB] bg-white text-[#4B5563]"
                     }`}
                   >
-                    <span>🎬</span> Video
+                    Video YouTube
                   </button>
                   <button
                     type="button"
                     onClick={() => setMaterialType("EXTERNAL_LINK")}
-                    className={`p-2 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 ${
+                    className={`h-8 px-2 text-xs font-medium rounded-[4px] border transition ${
                       materialType === "EXTERNAL_LINK"
-                        ? "bg-indigo-950 border-indigo-500 text-indigo-300"
-                        : "bg-slate-950 border-slate-800 text-slate-400"
+                        ? "border-[#1F4E8C] bg-[#EBF2FA] text-[#1F4E8C]"
+                        : "border-[#E3E6EB] bg-white text-[#4B5563]"
                     }`}
                   >
-                    <span>🔗</span> Tautan
+                    Tautan Luar
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">Judul Materi *</label>
+                <label className="text-xs font-medium text-[#111827] block mb-1">Judul materi *</label>
                 <input
                   type="text"
                   required
                   value={materialTitle}
                   onChange={(e) => setMaterialTitle(e.target.value)}
                   placeholder="Contoh: Modul 1 - Teori Dasar"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                  className="w-full h-9 px-3 text-xs bg-white text-[#111827] border border-[#E3E6EB] rounded-[6px] focus:outline-none focus:ring-2 focus:ring-[#1F4E8C]"
                 />
               </div>
 
               {materialType === "RICH_TEXT" && (
                 <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1">Konten Materi (Teks/HTML)</label>
+                  <label className="text-xs font-medium text-[#111827] block mb-1">
+                    Konten materi pembelajaran (HTML / Teks)
+                  </label>
                   <textarea
                     rows={4}
+                    required
                     value={materialContent}
                     onChange={(e) => setMaterialContent(e.target.value)}
                     placeholder="Tuliskan materi pelajaran di sini..."
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono"
+                    className="w-full p-2.5 text-xs bg-white text-[#111827] border border-[#E3E6EB] rounded-[6px] focus:outline-none focus:ring-2 focus:ring-[#1F4E8C]"
                   />
-                  <p className="text-[10px] text-slate-500 mt-0.5">
-                    Konten otomatis disanitasi di server (bebas dari script & event handlers berbahaya).
-                  </p>
                 </div>
               )}
 
               {(materialType === "VIDEO_LINK" || materialType === "EXTERNAL_LINK") && (
                 <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1">
-                    {materialType === "VIDEO_LINK" ? "URL Video (YouTube / Drive / Vimeo) *" : "URL Tautan *"}
+                  <label className="text-xs font-medium text-[#111827] block mb-1">
+                    URL {materialType === "VIDEO_LINK" ? "Video YouTube" : "Tautan Eksternal"} *
                   </label>
                   <input
                     type="url"
                     required
                     value={materialUrl}
                     onChange={(e) => setMaterialUrl(e.target.value)}
-                    placeholder="https://..."
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                    placeholder={materialType === "VIDEO_LINK" ? "https://www.youtube.com/watch?v=..." : "https://..."}
+                    className="w-full h-9 px-3 text-xs bg-white text-[#111827] border border-[#E3E6EB] rounded-[6px] focus:outline-none focus:ring-2 focus:ring-[#1F4E8C]"
                   />
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1">Status Publikasi</label>
-                  <select
-                    value={materialStatus}
-                    onChange={(e) => setMaterialStatus(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
-                  >
-                    <option value="PUBLISHED">PUBLISHED</option>
-                    <option value="DRAFT">DRAFT</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-2 pt-6">
+              <div className="flex items-center justify-between pt-1">
+                <label className="flex items-center gap-2 cursor-pointer text-xs text-[#111827]">
                   <input
                     type="checkbox"
-                    id="isRequired"
                     checked={materialIsRequired}
                     onChange={(e) => setMaterialIsRequired(e.target.checked)}
-                    className="rounded bg-slate-950 border-slate-800 text-indigo-600"
+                    className="rounded text-[#1F4E8C] focus:ring-[#1F4E8C]"
                   />
-                  <label htmlFor="isRequired" className="text-xs text-slate-300 cursor-pointer">
-                    Wajib Diselesaikan
-                  </label>
-                </div>
+                  <span>Wajib diselesaikan untuk progres belajar</span>
+                </label>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3">
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#E3E6EB]">
                 <button
                   type="button"
                   onClick={() => setShowMaterialModal(false)}
-                  className="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white"
+                  className="h-8 px-3 text-xs text-[#4B5563] hover:text-[#111827] border border-[#E3E6EB] rounded-[6px]"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  disabled={actionLoading}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-xl text-xs font-semibold"
+                  disabled={actionLoading || !materialTitle.trim()}
+                  className="h-8 px-3 text-xs font-medium text-white bg-[#1F4E8C] hover:bg-[#183E6F] rounded-[6px] disabled:opacity-50"
                 >
                   {actionLoading ? "Menyimpan..." : "Simpan Materi"}
                 </button>

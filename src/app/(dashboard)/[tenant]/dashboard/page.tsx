@@ -3,18 +3,10 @@ import { authOptions } from "@/lib/auth/auth-options";
 import { prisma } from "@/lib/db/prisma";
 import { getTerminology } from "@/lib/i18n/terminology";
 import Link from "next/link";
-import {
-  BookOpen,
-  Calendar,
-  Clock,
-  Award,
-  Users,
-  CheckCircle,
-  GraduationCap,
-  School,
-  ArrowRight,
-  Sparkles,
-} from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { BookOpen, Calendar, ArrowRight, Clock, Award } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -36,9 +28,6 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         include: {
           instructors: { include: { instructor: true } },
           enrollments: true,
-          scheduleEntries: {
-            include: { room: true, instructor: true },
-          },
         },
       },
     },
@@ -52,6 +41,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   const isUniversity = institution.type === "UNIVERSITY";
   const user = session.user;
   const currentRole = user.activeRole;
+  const activeTerm = institution.academicTerms[0];
 
   // Filter kelas sesuai peran
   const enrolledClasses = institution.classCourses.filter((c) => {
@@ -61,274 +51,134 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
     if (currentRole === "TEACHER") {
       return c.instructors.some((i) => i.instructorUserId === user.id);
     }
-    return true; // Admin sees all
+    return true; // Admin melihat semua
   });
 
-  // Ambil entri jadwal perkuliahan / pelajaran
-  const scheduleList = institution.classCourses.flatMap((c) =>
-    c.scheduleEntries.map((s) => ({
-      ...s,
-      courseName: c.name,
-      courseCode: c.code,
-      credits: c.credits,
-    }))
-  );
+  const totalCredits = enrolledClasses.reduce((acc, c) => acc + (c.credits || 0), 0);
 
   return (
-    <div className="space-y-8">
-      {/* Welcome Banner */}
-      <div
-        className={`p-6 md:p-8 rounded-3xl text-white relative overflow-hidden shadow-xl ${
-          isUniversity
-            ? "bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 shadow-blue-500/10"
-            : "bg-gradient-to-r from-emerald-700 via-teal-700 to-slate-900 shadow-emerald-500/10"
-        }`}
-      >
-        <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-xs font-semibold mb-4 border border-white/20">
-            {isUniversity ? (
-              <GraduationCap className="w-3.5 h-3.5" />
-            ) : (
-              <School className="w-3.5 h-3.5" />
-            )}
-            <span>
-              {institution.name} • {terminology.institutionLabel}
-            </span>
-          </div>
+    <div className="space-y-6">
+      {/* Page Header */}
+      <PageHeader
+        title="Dashboard"
+        description={`Selamat datang kembali, ${user.fullName}. Berikut ringkasan aktivitas akademik pada ${activeTerm?.name || "semester berjalan"}.`}
+      />
 
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-            Selamat Datang, {user.fullName}!
-          </h1>
-          <p className="mt-2 text-slate-100 text-sm leading-relaxed">
-            Anda masuk sebagai{" "}
-            <span className="font-bold underline decoration-white/40">
-              {currentRole}
-            </span>{" "}
-            dengan ID resmi:{" "}
-            <span className="font-mono bg-white/20 px-2 py-0.5 rounded font-bold">
-              {user.identifier}
-            </span>
-            . Semua data dan tampilan secara dinamis disesuaikan dengan standar{" "}
-            <strong>{terminology.institutionLabel}</strong>.
+      {/* Real Academic Metrics Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="p-4 bg-white border border-[#E3E6EB] rounded-[6px] shadow-none">
+          <div className="flex items-center justify-between text-[#4B5563]">
+            <span className="text-xs font-medium">Kelas aktif</span>
+            <BookOpen className="w-4 h-4 text-[#1F4E8C]" strokeWidth={1.5} />
+          </div>
+          <div className="mt-2 text-2xl font-semibold text-[#111827]">
+            {enrolledClasses.length}
+          </div>
+          <p className="mt-1 text-xs text-[#6B7280]">
+            {currentRole === "TEACHER" ? "Kelas yang Anda ampu" : "Kelas yang Anda ikuti"}
           </p>
         </div>
 
-        {/* Glow */}
-        <div className="absolute -top-12 -right-12 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-      </div>
-
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-xs font-semibold uppercase tracking-wider">
-              {terminology.classRoom} Aktif
-            </span>
-            <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
-              <BookOpen className="w-4 h-4" />
-            </div>
+        <div className="p-4 bg-white border border-[#E3E6EB] rounded-[6px] shadow-none">
+          <div className="flex items-center justify-between text-[#4B5563]">
+            <span className="text-xs font-medium">Total beban {terminology.creditsShort}</span>
+            <Award className="w-4 h-4 text-[#1F4E8C]" strokeWidth={1.5} />
           </div>
-          <div className="mt-3 text-2xl font-bold text-slate-900 dark:text-white">
-            {enrolledClasses.length}
+          <div className="mt-2 text-2xl font-semibold text-[#111827]">
+            {totalCredits} <span className="text-sm font-normal text-[#4B5563]">{terminology.creditsShort}</span>
           </div>
-          <div className="mt-1 text-xs text-slate-500">
-            Terdaftar di semester berjalan
-          </div>
+          <p className="mt-1 text-xs text-[#6B7280]">
+            Beban akademik semester ini
+          </p>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-xs font-semibold uppercase tracking-wider">
-              Beban {terminology.credits}
-            </span>
-            <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
-              <Award className="w-4 h-4" />
-            </div>
+        <div className="p-4 bg-white border border-[#E3E6EB] rounded-[6px] shadow-none">
+          <div className="flex items-center justify-between text-[#4B5563]">
+            <span className="text-xs font-medium">Periode akademik</span>
+            <Calendar className="w-4 h-4 text-[#1F4E8C]" strokeWidth={1.5} />
           </div>
-          <div className="mt-3 text-2xl font-bold text-slate-900 dark:text-white">
-            {isUniversity
-              ? `${enrolledClasses.reduce((acc, c) => acc + (c.credits || 0), 0)} SKS`
-              : `${enrolledClasses.length * 4} JP`}
+          <div className="mt-2 text-sm font-semibold text-[#111827] truncate">
+            {activeTerm?.name || "Semester Aktif"}
           </div>
-          <div className="mt-1 text-xs text-slate-500">
-            Beban akademik aktif
-          </div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-xs font-semibold uppercase tracking-wider">
-              Jadwal Sesi
-            </span>
-            <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
-              <Clock className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 text-2xl font-bold text-slate-900 dark:text-white">
-            {scheduleList.length} Pertemuan
-          </div>
-          <div className="mt-1 text-xs text-slate-500">
-            Jadwal mingguan terdaftar
-          </div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-xs font-semibold uppercase tracking-wider">
-              Modul {terminology.admissionShort}
-            </span>
-            <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 text-2xl font-bold text-slate-900 dark:text-white">
-            Aktif
-          </div>
-          <div className="mt-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-            Gelombang 2025/2026
-          </div>
+          <p className="mt-1 text-xs text-[#6B7280]">
+            Status: <span className="text-[#15803D] font-medium">Sedang Berjalan</span>
+          </p>
         </div>
       </div>
 
-      {/* Main Grid: Enrolled Courses & Schedule Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: List of Classes */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center space-x-2">
-              <BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              <span>Daftar {terminology.classRoom}</span>
+      {/* Real Enrolled Classes Section */}
+      <div className="bg-white border border-[#E3E6EB] rounded-[6px] p-5 shadow-none">
+        <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#E3E6EB]">
+          <div>
+            <h2 className="text-base font-semibold text-[#111827]">
+              Daftar kelas {isUniversity ? "perkuliahan" : "pelajaran"}
             </h2>
-            <Link
-              href={`/${tenant}/classes`}
-              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center space-x-1"
-            >
-              <span>Lihat Semua</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            <p className="text-xs text-[#4B5563] mt-0.5">
+              Akses materi pembelajaran dan aktivitas belajar
+            </p>
           </div>
+          <Link
+            href={`/${tenant}/classes`}
+            className="text-xs font-medium text-[#1F4E8C] hover:underline flex items-center gap-1"
+          >
+            <span>Buka semua kelas</span>
+            <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.5} />
+          </Link>
+        </div>
 
-          <div className="space-y-3">
-            {enrolledClasses.map((item) => {
-              const primaryInstructor = item.instructors.find((i) => i.isPrimary)?.instructor;
+        {enrolledClasses.length === 0 ? (
+          <EmptyState
+            title="Belum ada kelas terdaftar"
+            description="Anda belum terdaftar pada kelas manapun di semester ini. Hubungi bagian akademik jika ini adalah kekeliruan."
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {enrolledClasses.map((c) => {
+              const primaryInstructor = c.instructors?.[0]?.instructor?.fullName || "Belum ditentukan";
               return (
                 <div
-                  key={item.id}
-                  className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  key={c.id}
+                  className="p-4 border border-[#E3E6EB] rounded-[6px] hover:border-[#CBD5E1] transition bg-white flex flex-col justify-between"
                 >
-                  <div className="space-y-1">
-                    <div className="flex items-center space-x-2">
-                      <span className="px-2.5 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-xs font-mono font-bold">
-                        {item.code}
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="font-mono text-xs font-semibold px-2 py-0.5 bg-[#F6F7F9] border border-[#E3E6EB] rounded text-[#111827]">
+                        {c.code}
                       </span>
-                      {isUniversity && (
-                        <span className="text-xs text-slate-500 font-medium">
-                          {item.credits} SKS
+                      {c.credits && (
+                        <span className="text-xs text-[#4B5563]">
+                          {c.credits} {terminology.creditsShort}
                         </span>
                       )}
                     </div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      {item.name}
+                    <h3 className="text-sm font-semibold text-[#111827] line-clamp-1">
+                      {c.name}
                     </h3>
-                    <p className="text-xs text-slate-500">
-                      {terminology.teacher}:{" "}
-                      <strong>
-                        {primaryInstructor?.fullName || "Belum ditentukan"}
-                      </strong>
+                    <p className="text-xs text-[#4B5563] mt-1 line-clamp-2">
+                      {c.description || `${c.name} pada ${activeTerm?.name || "Semester Aktif"}.`}
                     </p>
+                    <div className="mt-3 text-xs text-[#6B7280]">
+                      {terminology.teacher}: <span className="text-[#111827] font-medium">{primaryInstructor}</span>
+                    </div>
                   </div>
 
-                  <Link
-                    href={`/${tenant}/classes`}
-                    className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-xs font-semibold text-slate-700 dark:text-slate-300 transition-all text-center"
-                  >
-                    Buka Kelas
-                  </Link>
+                  <div className="mt-4 pt-3 border-t border-[#E3E6EB] flex items-center justify-between">
+                    <span className="text-[11px] text-[#6B7280]">
+                      {c.enrollments?.length || 0} peserta
+                    </span>
+                    <Link
+                      href={`/${tenant}/classes/${c.id}`}
+                      className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#1F4E8C] hover:bg-[#183E6F] text-white text-xs font-medium rounded-[6px] transition focus:outline-none focus:ring-2 focus:ring-[#1F4E8C]"
+                    >
+                      <span>Buka kelas</span>
+                      <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.5} />
+                    </Link>
+                  </div>
                 </div>
               );
             })}
           </div>
-        </div>
-
-        {/* Right Column: Today's Schedule & i18n Dictionary Card */}
-        <div className="space-y-6">
-          {/* Schedule Card */}
-          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
-                <Clock className="w-4 h-4 text-amber-500" />
-                <span>Jadwal Pekan Ini</span>
-              </h3>
-              <Link
-                href={`/${tenant}/schedule`}
-                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                Detail
-              </Link>
-            </div>
-
-            {scheduleList.length === 0 ? (
-              <p className="text-xs text-slate-500 py-4 text-center">
-                Belum ada jadwal terdaftar.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {scheduleList.map((sch) => (
-                  <div
-                    key={sch.id}
-                    className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60"
-                  >
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="font-bold text-blue-600 dark:text-blue-400">
-                        {sch.dayOfWeek}
-                      </span>
-                      <span className="font-mono text-slate-500">
-                        {sch.startTime} - {sch.endTime}
-                      </span>
-                    </div>
-                    <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                      {sch.courseName}
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      Ruang: <strong>{sch.room.name}</strong> ({sch.room.code})
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Dynamic i18n Terminology Card */}
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-lg">
-            <div className="flex items-center space-x-2 text-xs font-bold text-amber-400 uppercase tracking-wider mb-3">
-              <Sparkles className="w-4 h-4" />
-              <span>Pemetaan Istilah Institusi ({terminology.institutionLabel})</span>
-            </div>
-
-            <div className="space-y-2 text-xs text-slate-300">
-              <div className="flex justify-between py-1 border-b border-white/10">
-                <span className="text-slate-400">Pengajar:</span>
-                <span className="font-semibold text-white">{terminology.teacher} ({terminology.teacherId})</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-white/10">
-                <span className="text-slate-400">Peserta Didik:</span>
-                <span className="font-semibold text-white">{terminology.student} ({terminology.studentId})</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-white/10">
-                <span className="text-slate-400">Unit Mata Kuliah:</span>
-                <span className="font-semibold text-white">{terminology.course} ({terminology.credits})</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-white/10">
-                <span className="text-slate-400">Laporan Nilai:</span>
-                <span className="font-semibold text-white">{terminology.gradeReport} ({terminology.gpa})</span>
-              </div>
-              <div className="flex justify-between py-1">
-                <span className="text-slate-400">Penerimaan Siswa/Mhs:</span>
-                <span className="font-semibold text-emerald-400">{terminology.admissionShort}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

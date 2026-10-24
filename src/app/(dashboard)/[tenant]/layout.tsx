@@ -2,9 +2,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth-options";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
-import { getTerminology } from "@/lib/i18n/terminology";
-import { DashboardSidebar } from "./dashboard-sidebar";
-import { DashboardHeader } from "./dashboard-header";
+import { Sidebar } from "@/components/ui/sidebar";
+import { Header } from "@/components/ui/header";
 
 export const dynamic = "force-dynamic";
 
@@ -26,9 +25,9 @@ export default async function DashboardLayout({
     redirect(`/${tenant}/login`);
   }
 
-  // Jika mustChangePassword == true, paksa redirect ke change-password
-  if (session.user.mustChangePassword) {
-    redirect(`/${tenant}/change-password`);
+  // Jika akun PENDING_ACTIVATION atau mustChangePassword, paksa redirect ke onboarding
+  if (session.user.status === "PENDING_ACTIVATION" || session.user.mustChangePassword) {
+    redirect(`/${tenant}/onboarding`);
   }
 
   const institution = await prisma.institution.findUnique({
@@ -45,30 +44,29 @@ export default async function DashboardLayout({
     redirect("/poltekmi/login");
   }
 
-  const terminology = getTerminology(institution.type);
   const activeTerm = institution.academicTerms[0];
 
   return (
-    <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950">
-      {/* Sidebar Navigation */}
-      <DashboardSidebar
+    <div className="min-h-screen flex bg-[#F6F7F9]">
+      {/* 240px Fixed/Drawer Institutional Sidebar */}
+      <Sidebar
         tenantSlug={tenant}
-        institution={institution}
-        terminology={terminology}
-        user={session.user}
+        institutionName={institution.name}
+        institutionType={institution.type}
+        role={session.user.activeRole}
       />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        <DashboardHeader
+        {/* 56px Institutional Header */}
+        <Header
           tenantSlug={tenant}
-          institution={institution}
-          activeTerm={activeTerm}
           user={session.user}
-          terminology={terminology}
+          institutionType={institution.type}
+          academicTermName={activeTerm?.name || "Semester Aktif"}
         />
 
-        <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-6xl w-full mx-auto">
           {children}
         </main>
       </div>

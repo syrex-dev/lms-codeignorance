@@ -51,3 +51,29 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: error.message || "Gagal membuat topik." }, { status });
   }
 }
+
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const guard = await requireSession(req, { requiredFeature: "classroom" });
+    if (!guard.success) return guard.response;
+    const { institutionId, role, user } = guard;
+    const { id: classCourseId } = await params;
+    const body = await req.json();
+
+    if (body.topicIds && Array.isArray(body.topicIds)) {
+      await reorderTopics({
+        institutionId,
+        classCourseId,
+        topicIds: body.topicIds,
+        userId: user.id,
+        role,
+      });
+      return NextResponse.json({ success: true, message: "Urutan topik berhasil diperbarui." });
+    }
+
+    return NextResponse.json({ error: "topicIds array wajib disediakan." }, { status: 400 });
+  } catch (error: any) {
+    const status = error.message?.includes("Akses ditolak") ? 403 : 500;
+    return NextResponse.json({ error: error.message || "Gagal mengubah urutan topik." }, { status });
+  }
+}

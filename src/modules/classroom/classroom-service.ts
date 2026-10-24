@@ -993,3 +993,34 @@ async function assertTeacherOrAdmin(
 
   throw new Error("Akses ditolak: Anda tidak memiliki wewenang pengajar di kelas ini.");
 }
+
+export async function reorderMaterials(params: {
+  institutionId: string;
+  topicId: string;
+  materialIds: string[];
+  userId: string;
+  role: string;
+}) {
+  const { institutionId, topicId, materialIds, userId, role } = params;
+  await assertClassroomEntitlement(institutionId);
+
+  return withTenantTransaction(institutionId, async (tenantDb) => {
+    const topic = await tenantDb.topic.findFirst({
+      where: { id: topicId, institutionId, deletedAt: null },
+    });
+    if (!topic) throw new Error("Topik tidak ditemukan.");
+
+    await assertTeacherOrAdmin(tenantDb, institutionId, topic.classCourseId, userId, role);
+
+    await Promise.all(
+      materialIds.map((id, index) =>
+        tenantDb.material.updateMany({
+          where: { id, topicId, institutionId },
+          data: { orderIndex: index },
+        })
+      )
+    );
+
+    return { success: true };
+  });
+}

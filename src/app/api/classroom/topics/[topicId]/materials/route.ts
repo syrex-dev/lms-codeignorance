@@ -1,6 +1,6 @@
 import { requireSession } from "@/lib/auth/guard";
 import { NextResponse } from "next/server";
-import { createMaterial } from "@/modules/classroom/classroom-service";
+import { createMaterial, reorderMaterials } from "@/modules/classroom/classroom-service";
 import { MaterialType } from "@prisma/client";
 
 export async function POST(req: Request, { params }: { params: Promise<{ topicId: string }> }) {
@@ -51,5 +51,31 @@ export async function POST(req: Request, { params }: { params: Promise<{ topicId
     console.error("POST /api/classroom/topics/[topicId]/materials error:", error);
     const status = error.message?.includes("Akses ditolak") ? 403 : 500;
     return NextResponse.json({ error: error.message || "Gagal membuat materi." }, { status });
+  }
+}
+
+export async function PUT(req: Request, { params }: { params: Promise<{ topicId: string }> }) {
+  try {
+    const guard = await requireSession(req, { requiredFeature: "classroom" });
+    if (!guard.success) return guard.response;
+    const { institutionId, role, user } = guard;
+    const { topicId } = await params;
+    const body = await req.json();
+
+    if (body.materialIds && Array.isArray(body.materialIds)) {
+      await reorderMaterials({
+        institutionId,
+        topicId,
+        materialIds: body.materialIds,
+        userId: user.id,
+        role,
+      });
+      return NextResponse.json({ success: true, message: "Urutan materi berhasil diperbarui." });
+    }
+
+    return NextResponse.json({ error: "materialIds array wajib disediakan." }, { status: 400 });
+  } catch (error: any) {
+    const status = error.message?.includes("Akses ditolak") ? 403 : 500;
+    return NextResponse.json({ error: error.message || "Gagal mengubah urutan materi." }, { status });
   }
 }

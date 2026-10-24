@@ -56,8 +56,8 @@ describe("FASE 2B: VERIFIKASI & PENUTUPAN CELAH", () => {
   // 1. GERBANG KEAMANAN DATABASE
   // =========================================================================
   describe("1. Gerbang Keamanan Database", () => {
-    it("1.a & 1.f - Katalog Postgres: semua tabel bertenant wajib RLS enabled + forced + ada policy", async () => {
-      // Query catalog Postgres untuk memeriksa seluruh tabel yang memiliki kolom institutionId
+    it("1.a - Katalog Postgres & Fail-Closed Multi-Tabel: RLS enabled, forced, ada policy & 0 baris tanpa konteks", async () => {
+      // 1. Query catalog Postgres untuk memeriksa seluruh tabel yang memiliki kolom institutionId
       const tenantTables: any[] = await prisma.$queryRaw`
         SELECT 
           c.relname AS table_name,
@@ -75,15 +75,26 @@ describe("FASE 2B: VERIFIKASI & PENUTUPAN CELAH", () => {
 
       expect(tenantTables.length).toBeGreaterThanOrEqual(30);
 
-      // Guard assertion: Jika ada tabel bertenant yang RLS-nya tidak enabled, forced, atau tanpa policy, test ini GAGAL!
+      // Guard assertion katalog
       for (const table of tenantTables) {
         expect(table.rls_enabled, `Table ${table.table_name} must have RLS enabled`).toBe(true);
         expect(table.rls_forced, `Table ${table.table_name} must have RLS forced`).toBe(true);
         expect(table.policy_count, `Table ${table.table_name} must have at least 1 policy`).toBeGreaterThan(0);
       }
+
+      // 2. Pembuktian perilaku nyata: Query multi-tabel bertenant tanpa session context menghasilkan 0 baris
+      await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`RESET app.current_tenant;`;
+        const users: any[] = await tx.$queryRaw`SELECT * FROM "User";`;
+        const classes: any[] = await tx.$queryRaw`SELECT * FROM "ClassCourse";`;
+        const terms: any[] = await tx.$queryRaw`SELECT * FROM "AcademicTerm";`;
+        expect(users.length).toBe(0);
+        expect(classes.length).toBe(0);
+        expect(terms.length).toBe(0);
+      });
     });
 
-    it("1.b - Parameterized set_config & validasi format tenantId menolak injeksi SQL", async () => {
+    it("1.b - Parameterized set_config menolak bypass injeksi SQL pada query nyata", async () => {
       // 1. Validasi format tenantId menolak karakter berbahaya
       const maliciousPayloads = [
         "poltekmi' OR '1'='1",
@@ -99,13 +110,38 @@ describe("FASE 2B: VERIFIKASI & PENUTUPAN CELAH", () => {
         await expect(withTenantTransaction(malicious, async () => {})).rejects.toThrow();
       }
 
-      // 2. Format valid (alphanumeric, dash, underscore) diterima
-      expect(validateTenantId("poltekmi-123_abc")).toBe("poltekmi-123_abc");
+      // 2. Eksekusi query nyata dengan parameterized set_config:
+      // Injeksi SQL string diperlakukan sebagai nilai string literal, bukan perintah SQL
+      const maliciousSql = "poltekmi' OR '1'='1";
+      await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.current_tenant', ${maliciousSql}, true);`;
+        const leakedUsers: any[] = await tx.$queryRaw`SELECT * FROM "User";`;
+        expect(leakedUsers.length).toBe(0); // Tidak ada data bocor karena treated as literal
+      });
     });
 
-    it("1.c - Password lms_app tidak hardcode dan dibaca dari environment", () => {
-      expect(process.env.LMS_APP_DB_PASSWORD).toBeDefined();
-      expect(process.env.DATABASE_URL).toContain(process.env.LMS_APP_DB_PASSWORD || "app_sec_pwd");
+    it("1.c - Least Privilege: Role lms_app ditolak saat mencoba eksekusi perintah superuser", async () => {
+      // Mencoba ALTER SYSTEM atau CREATE ROLE sebagai lms_app HARUS DITOLAK oleh Postgres
+      await expect(
+        prisma.$executeRaw`ALTER SYSTEM SET log_connections = 'on';`
+      ).rejects.toThrow(/permission denied|must be superuser/i);
+
+      await expect(
+        prisma.$executeRaw`CREATE ROLE malicious_test_role;`
+      ).rejects.toThrow(/permission denied/i);
+    });
+
+    it("1.f - Koneksi aplikasi memakai role lms_app (non-superuser, NOBYPASSRLS)", async () => {
+      const roleCheck: any[] = await prisma.$queryRaw`
+        SELECT current_user, rolsuper, rolbypassrls 
+        FROM pg_roles 
+        WHERE rolname = current_user;
+      `;
+      expect(roleCheck.length).toBe(1);
+      const role = roleCheck[0];
+      expect(role.current_user).toBe("lms_app");
+      expect(role.rolsuper).toBe(false);
+      expect(role.rolbypassrls).toBe(false);
     });
 
     it("1.d - Role lms_platform terpisah dengan BYPASSRLS untuk lintas tenant", async () => {

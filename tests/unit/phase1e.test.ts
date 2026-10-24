@@ -1,331 +1,443 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/db/prisma";
-import { getTenantPrisma, assertTenantContext, withTenantTransaction } from "@/lib/db/tenant-prisma";
+import { assertTenantContext, getTenantPrisma, withTenantTransaction } from "@/lib/db/tenant-prisma";
 import { storage } from "@/lib/storage";
-import { sendOtpWithFallback, MockOtpSender } from "@/modules/otp/sender";
-import { OtpChannel, OtpPurpose } from "@/modules/otp/types";
+import { MockOtpSender, sendOtpWithFallback } from "@/modules/otp/sender";
 import { issueOtpChallenge, verifyOtpCode } from "@/modules/otp/otp-service";
-import { hashPassword, validateNewPassword } from "@/lib/security/password-policy";
-import { hasFeature, checkLimit } from "@/modules/saas/entitlement";
+import { checkLimit } from "@/modules/saas/entitlement";
+import { hashPassword } from "@/lib/security/password-policy";
+import { OtpChannel, OtpPurpose } from "@prisma/client";
+import { encode } from "next-auth/jwt";
+import { GET as devOutboxGet } from "@/app/api/dev/outbox/route";
+import { POST as forgotPasswordPost } from "@/app/api/auth/forgot-password/request/route";
+import { POST as academicTermsPost } from "@/app/api/admin/academic/terms/route";
+import { POST as otpSendPost } from "@/app/api/auth/otp/send/route";
+import { POST as resetAccessPost } from "@/app/api/admin/users/[id]/reset-access/route";
 
-function assert(condition: boolean, message: string) {
-  if (!condition) {
-    console.error(`❌ ASSERTION FAILED: ${message}`);
-    throw new Error(message);
-  }
-}
+describe("FASE 1E: PENGUJIAN KEAMANAN SISTEM & EDGE CASES", () => {
+  let poltekmi: any;
+  let sman1: any;
 
-describe("Fase 1E Unit Test Suite", () => {
-  it("menjalankan seluruh skenario Fase 1E penutupan celah & defense in depth", async () => {
-  console.log("==================================================================");
-  console.log("🧪 TEST SUITE FASE 1E: PENUTUPAN CELAH & DEFENSE IN DEPTH");
-  console.log("==================================================================");
+  beforeAll(async () => {
+    poltekmi = await prisma.institution.findUnique({ where: { slug: "poltekmi" } });
+        sman1 = await prisma.institution.findUnique({ where: { slug: "sman1" } });
 
-  // Ambil tenant demo dari database (Institution bukan tabel dengan RLS app.current_tenant)
-  const poltekmi = await prisma.institution.findUnique({ where: { slug: "poltekmi" } });
-  const sman1 = await prisma.institution.findUnique({ where: { slug: "sman1" } });
+    expect(poltekmi).toBeDefined();
+    expect(sman1).toBeDefined();
 
-  assert(!!poltekmi && !!sman1, "Tenant demo poltekmi dan sman1 harus ada di database.");
-
-  // ------------------------------------------------------------------
-  // [TEST 1E-1] ISOLASI DATA TENANT (FAIL-CLOSED & PRISMA EXTENSION)
-  // ------------------------------------------------------------------
-  console.log("\n[TEST 1E-1] Menguji Isolasi Data Tenant (Fail-Closed & Extension)...");
-  
-  // A. Fail-Closed Guard jika query tanpa institutionId
-  let failClosedTriggered = false;
-  try {
-    assertTenantContext(null as any);
-  } catch (err: any) {
-    failClosedTriggered = err.message.includes("fail closed");
-  }
-  assert(failClosedTriggered, "Query tanpa institutionId wajib melempar error fail-closed.");
-
-  // B. Query dengan tenant extension poltekmi tidak boleh melihat data sman1
-  const poltekmiDb = getTenantPrisma(poltekmi!.id);
-  const sman1UsersFoundByPoltekmi = await (poltekmiDb as any).user.findMany({
-    where: { institutionId: sman1!.id },
   });
-  assert(
-    sman1UsersFoundByPoltekmi.length === 0,
-    "Tenant poltekmi tidak boleh membaca data pengguna milik tenant sman1!"
-  );
 
-  // C. PostgreSQL Row-Level Security verification
-  // Menguji query langsung dengan SET LOCAL app.current_tenant
-  await prisma.$transaction(async (tx) => {
-    await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant = '${poltekmi!.id}';`);
-    const rlsCount = await tx.user.count({
-      where: { institutionId: sman1!.id },
+  it("1E-1: Fail-Closed Tenant Guard & Isolasi Data Antar-Tenant", async () => {
+    // A. Fail-Closed Guard jika query tanpa institutionId
+    let failClosedTriggered = false;
+    try {
+      assertTenantContext(null as any);
+    } catch (err: any) {
+      failClosedTriggered = err.message.includes("fail closed");
+    }
+    expect(failClosedTriggered).toBe(true);
+
+    // B. Query dengan tenant extension poltekmi tidak boleh melihat data sman1
+    const poltekmiDb = getTenantPrisma(poltekmi.id);
+    const sman1UsersFoundByPoltekmi = await (poltekmiDb as any).user.findMany({
+      where: { institutionId: sman1.id },
     });
-    assert(rlsCount === 0, "PostgreSQL RLS wajib menyaring 0 baris untuk data tenant lain!");
+    expect(sman1UsersFoundByPoltekmi.length).toBe(0);
+
+    // C. PostgreSQL Row-Level Security verification
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.current_tenant', ${poltekmi.id}, true);`;
+      const rlsCount = await tx.user.count({
+        where: { institutionId: sman1.id },
+      });
+      expect(rlsCount).toBe(0);
+    });
   });
-  console.log("✅ TEST 1E-1 PASSED: Isolasi data Prisma extension & PostgreSQL RLS terbukti ketat.");
 
-  // ------------------------------------------------------------------
-  // [TEST 1E-2] STORAGE FILE BERPREFIX TENANT & HMAC SIGNED URL
-  // ------------------------------------------------------------------
-  console.log("\n[TEST 1E-2] Menguji Storage File Berprefix Tenant & Validasi Signed URL...");
-
-  const dummyBuffer = Buffer.from("Dokumen Akreditasi Kampus", "utf-8");
-  const uploadResult = await storage.uploadFile(
-    dummyBuffer,
-    "akreditasi.pdf",
-    "application/pdf",
-    poltekmi!.id,
-    "documents"
-  );
-
-  assert(
-    uploadResult.url.startsWith(`/uploads/${poltekmi!.id}/documents/`),
-    "Path upload wajib diawali prefix tenantId."
-  );
-
-  // Verifikasi signed URL untuk tenant yang berhak
-  const validCheck = storage.validateSignedUrl(uploadResult.signedUrl, poltekmi!.id);
-  assert(validCheck.valid === true, "Signed URL harus valid untuk tenant pemilik file.");
-
-  // Uji kebocoran: Tenant B mencoba mengakses signed URL Tenant A
-  const breachCheck = storage.validateSignedUrl(uploadResult.signedUrl, sman1!.id);
-  assert(
-    breachCheck.valid === false,
-    "Akses signed URL oleh tenant yang berbeda wajib ditolak!"
-  );
-  console.log("✅ TEST 1E-2 PASSED: Storage prefix tenant dan HMAC signed URL anti cross-tenant terverifikasi.");
-
-  // ------------------------------------------------------------------
-  // [TEST 1E-3] ALUR LUPA PASSWORD: RESPONS ANTI-USER-ENUMERATION
-  // ------------------------------------------------------------------
-  console.log("\n[TEST 1E-3] Menguji Respons Lupa Password Anti-User Enumeration...");
-
-  await withTenantTransaction(poltekmi!.id, async (tenantDb) => {
-    const registeredUser = await (tenantDb as any).user.findFirst({
-      where: { status: "ACTIVE" },
-    });
-
-    const expectedGenericMessage = "Jika data cocok, kode verifikasi dikirim ke nomor terdaftar.";
-    const mockResponseRegistered = { success: true, message: expectedGenericMessage };
-    const mockResponseUnregistered = { success: true, message: expectedGenericMessage };
-
-    assert(
-      mockResponseRegistered.message === mockResponseUnregistered.message,
-      "Pesan respons lupa password untuk akun terdaftar dan tidak terdaftar harus identik!"
+  it("1E-2: Storage File Berprefix Tenant & HMAC Signed URL Anti Cross-Tenant", async () => {
+    const dummyBuffer = Buffer.from("Dokumen Akreditasi Kampus", "utf-8");
+    const uploadResult = await storage.uploadFile(
+      dummyBuffer,
+      "akreditasi.pdf",
+      "application/pdf",
+      poltekmi.id,
+      "documents"
     );
 
-    if (registeredUser) {
-      const prevVersion = registeredUser.sessionVersion;
-      const updated = await (tenantDb as any).user.update({
-        where: { id: registeredUser.id },
+    expect(uploadResult.url.startsWith(`/uploads/${poltekmi.id}/documents/`)).toBe(true);
+
+    // Verifikasi signed URL untuk tenant yang berhak
+    const validCheck = storage.validateSignedUrl(uploadResult.signedUrl, poltekmi.id);
+    expect(validCheck.valid).toBe(true);
+
+    // Akses signed URL oleh tenant yang berbeda wajib ditolak
+    const breachCheck = storage.validateSignedUrl(uploadResult.signedUrl, sman1.id);
+    expect(breachCheck.valid).toBe(false);
+  });
+
+  it("1E-3: Alur Lupa Password: Anti-User-Enumeration & Invalidasi Sesi (sessionVersion)", async () => {
+    // 1. Panggil handler dengan identifier user terdaftar
+    const registeredUser = await withTenantTransaction(poltekmi.id, async (tenantDb) =>
+      tenantDb.user.findFirst({
+        where: { institutionId: poltekmi.id, fullName: "Doni Prasetyo" },
+        include: { identifiers: true },
+      })
+    );
+    expect(registeredUser).toBeDefined();
+    const registeredId = registeredUser!.identifiers[0]?.identifier || registeredUser!.id;
+
+    const reqRegistered = new Request("http://localhost:3000/api/auth/forgot-password/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        institutionSlug: "poltekmi",
+        identifier: registeredId,
+        dateOfBirth: registeredUser!.birthDate ? registeredUser!.birthDate.toISOString().slice(0, 10) : "2005-04-12",
+      }),
+    });
+    const resRegistered = await forgotPasswordPost(reqRegistered);
+    const bodyRegistered = await resRegistered.json();
+
+    // 2. Panggil handler dengan identifier fiktif / tidak terdaftar
+    const reqUnregistered = new Request("http://localhost:3000/api/auth/forgot-password/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        institutionSlug: "poltekmi",
+        identifier: "ID_TIDAK_TERDAFTAR_99999",
+        dateOfBirth: "2000-01-01",
+      }),
+    });
+    const resUnregistered = await forgotPasswordPost(reqUnregistered);
+    const bodyUnregistered = await resUnregistered.json();
+
+    // Bandingkan status dan body respons asli: keduanya WAJIB 200 dan pesan generic identik
+    expect(resRegistered.status).toBe(200);
+    expect(resUnregistered.status).toBe(200);
+    expect(bodyRegistered.message).toBe(bodyUnregistered.message);
+    expect(bodyRegistered.success).toBe(bodyUnregistered.success);
+
+    // 3. Verifikasi invalidasi sessionVersion
+    const prevVersion = registeredUser!.sessionVersion;
+    const updated = await withTenantTransaction(poltekmi.id, async (tenantDb) =>
+      tenantDb.user.update({
+        where: { id: registeredUser!.id },
         data: { sessionVersion: { increment: 1 } },
+      })
+    );
+    expect(updated.sessionVersion).toBe(prevVersion + 1);
+  });
+
+  it("1E-4: Fallback Otomatis WhatsApp ke SMS saat WA Mengalami Kegagalan", async () => {
+    MockOtpSender.simulateWhatsAppFailure = true;
+
+    const fallbackResult = await sendOtpWithFallback(
+      OtpChannel.WHATSAPP,
+      "+6281234567890",
+      "Kode verifikasi: 123456",
+      "123456",
+      { institutionSlug: "poltekmi", purpose: "TEST_FALLBACK" }
+    );
+
+    MockOtpSender.simulateWhatsAppFailure = false;
+
+    expect(fallbackResult.success).toBe(true);
+    expect(fallbackResult.fallbackUsed).toBe(true);
+    expect(fallbackResult.channel).toBe(OtpChannel.SMS);
+  });
+
+  it("1E-5: Nomor HP Terkunci vs Lockout Tanggal Lahir (5 Kali Gagal via Route /api/auth/otp/send)", async () => {
+    const testStudent = await withTenantTransaction(poltekmi.id, async (tenantDb) =>
+      tenantDb.user.findFirst({
+        where: { institutionId: poltekmi.id, status: "PENDING_ACTIVATION" },
+        include: { identifiers: true },
+      })
+    );
+    expect(testStudent).toBeDefined();
+
+    // Pastikan user memiliki birthDate untuk pengujian faktor kedua
+    await withTenantTransaction(poltekmi.id, async (tenantDb) =>
+      tenantDb.user.update({
+        where: { id: testStudent!.id },
+        data: {
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+          phoneE164: null, // Admin belum mengikat HP, sehingga verifikasi DOB aktif
+          birthDate: new Date("2005-04-12T00:00:00Z"),
+        },
+      })
+    );
+
+    const studentToken = await encode({
+      token: {
+        id: testStudent!.id,
+        name: testStudent!.fullName,
+        fullName: testStudent!.fullName,
+        identifier: "2301010011",
+      activeRole: "STUDENT",
+        activeInstitutionId: poltekmi.id,
+        tenantSlug: "poltekmi",
+        status: "PENDING_ACTIVATION",
+        sessionVersion: testStudent!.sessionVersion,
+        mustChangePassword: true,
+      },
+      secret: process.env.NEXTAUTH_SECRET || "development-secret-must-be-at-least-32-chars-long",
+    });
+
+    const wrongDob = "1990-01-01";
+
+    let lastResponse: any;
+    for (let i = 1; i <= 5; i++) {
+      const req = new Request("http://localhost:3000/api/auth/otp/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          cookie: `next-auth.session-token=${studentToken}`,
+        },
+        body: JSON.stringify({
+          tenantSlug: "poltekmi",
+          destinationPhone: "+6281234567899",
+          birthDate: wrongDob,
+          purpose: "FIRST_ACTIVATION",
+        }),
       });
-      assert(
-        updated.sessionVersion === prevVersion + 1,
-        "Reset lupa password wajib menaikkan sessionVersion untuk membatalkan semua sesi lain."
-      );
+      const res = await otpSendPost(req);
+      lastResponse = { status: res.status, body: await res.json() };
+    }
+
+    expect(lastResponse.status).toBe(400);
+    expect(lastResponse.body.error).toContain("Tanggal lahir tidak cocok");
+
+    const lockedUser = await withTenantTransaction(poltekmi.id, async (tenantDb) =>
+      tenantDb.user.findUnique({
+        where: { id: testStudent!.id },
+      })
+    );
+    expect(lockedUser!.failedLoginAttempts).toBeGreaterThanOrEqual(5);
+    expect(lockedUser!.lockedUntil).not.toBeNull();
+    expect(new Date(lockedUser!.lockedUntil!) > new Date()).toBe(true);
+
+    // Pulihkan status user
+    await withTenantTransaction(poltekmi.id, async (tenantDb) =>
+      tenantDb.user.update({
+        where: { id: testStudent!.id },
+        data: { failedLoginAttempts: 0, lockedUntil: null },
+      })
+    );
+  });
+
+  it("1E-6: Admin Reset Akses Pengguna lewat Route /api/admin/users/[id]/reset-access", async () => {
+    const testStudent = await withTenantTransaction(poltekmi.id, async (tenantDb) =>
+      tenantDb.user.findFirst({
+        where: { institutionId: poltekmi.id, fullName: "Doni Prasetyo" },
+      })
+    );
+    expect(testStudent).toBeDefined();
+    const prevVersion = testStudent!.sessionVersion;
+    const originalHash = testStudent!.passwordHash;
+
+    const adminUser = await withTenantTransaction(poltekmi.id, async (tenantDb) =>
+      tenantDb.user.findFirst({
+        where: { institutionId: poltekmi.id, memberships: { some: { role: "INSTITUTION_ADMIN" } } },
+      })
+    );
+    expect(adminUser).toBeDefined();
+
+    const token = await encode({
+      token: {
+        id: adminUser!.id,
+        name: adminUser!.fullName,
+        fullName: adminUser!.fullName,
+        identifier: "ADM001",
+      activeRole: "INSTITUTION_ADMIN",
+        activeInstitutionId: poltekmi.id,
+        tenantSlug: "poltekmi",
+        status: "ACTIVE",
+        sessionVersion: adminUser!.sessionVersion,
+      },
+      secret: process.env.NEXTAUTH_SECRET || "development-secret-must-be-at-least-32-chars-long",
+    });
+
+    const req = new Request(`http://localhost:3000/api/admin/users/${testStudent!.id}/reset-access`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: `next-auth.session-token=${token}`,
+      },
+      body: JSON.stringify({
+        actionType: "PASSWORD_ONLY",
+        reason: "Permintaan reset password oleh wali mahasiswa karena lupa kredensial.",
+      }),
+    });
+
+    const res = await resetAccessPost(req, { params: Promise.resolve({ id: testStudent!.id }) });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+
+    const resetUser = await withTenantTransaction(poltekmi.id, async (tenantDb) =>
+      tenantDb.user.findUnique({
+        where: { id: testStudent!.id },
+      })
+    );
+    expect(resetUser!.status).toBe("PENDING_ACTIVATION");
+    expect(resetUser!.mustChangePassword).toBe(true);
+    expect(resetUser!.sessionVersion).toBe(prevVersion + 1);
+
+    // Pulihkan kembali ke status semula
+    await withTenantTransaction(poltekmi.id, async (tenantDb) =>
+      tenantDb.user.update({
+        where: { id: testStudent!.id },
+        data: { status: "ACTIVE", mustChangePassword: false, passwordHash: originalHash },
+      })
+    );
+  });
+
+  it("1E-7: Dua Akun dengan Nomor HP Sama Terisolasi & Tidak Membocorkan Verification Token", async () => {
+    const sharedPhone = "+6281299990088";
+    await prisma.otpChallenge.deleteMany({ where: { destinationE164: sharedPhone } });
+
+    const challenge1 = await issueOtpChallenge({
+      institutionId: poltekmi.id,
+      destinationE164: sharedPhone,
+      channel: OtpChannel.WHATSAPP,
+      purpose: OtpPurpose.FIRST_ACTIVATION,
+    });
+
+    const outbox1 = await prisma.devOutbox.findFirst({
+      where: { recipient: sharedPhone },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(outbox1).toBeDefined();
+
+    const verifyRes1 = await verifyOtpCode({
+      challengeId: challenge1.challengeId!,
+      code: outbox1!.code,
+      purpose: OtpPurpose.FIRST_ACTIVATION,
+      expectedDestinationE164: sharedPhone,
+    });
+    expect(verifyRes1.success).toBe(true);
+
+    await withTenantTransaction(poltekmi.id, async (tenantDb) => {
+      const invalidUse = await (tenantDb as any).otpChallenge.findFirst({
+        where: {
+          id: "fake-child-2-challenge-id",
+          verificationToken: verifyRes1.verificationToken,
+        },
+      });
+      expect(invalidUse).toBeNull();
+    });
+  });
+
+  it("1E-8: Tenant SUSPENDED Berada dalam Mode Read-Only (Operasi Tulis Ditolak 403 TENANT_SUSPENDED)", async () => {
+    const suspendedTenant = await prisma.institution.create({
+      data: {
+        name: "Institut Terhenti Demo",
+        slug: `institut-terhenti-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        type: "UNIVERSITY",
+        status: "SUSPENDED",
+        emailDomain: "terhenti.ac.id",
+      },
+    });
+
+    const suspendedAdmin = await withTenantTransaction(suspendedTenant.id, async (tenantDb) =>
+      tenantDb.user.create({
+        data: {
+          institutionId: suspendedTenant.id,
+          fullName: "Admin Terhenti",
+          passwordHash: "dummyhash",
+          status: "ACTIVE",
+          sessionVersion: 1,
+          memberships: {
+            create: {
+              institutionId: suspendedTenant.id,
+              role: "INSTITUTION_ADMIN",
+              status: "ACTIVE",
+            },
+          },
+        },
+      })
+    );
+
+    try {
+      const token = await encode({
+        token: {
+          id: suspendedAdmin.id,
+          name: suspendedAdmin.fullName,
+          fullName: suspendedAdmin.fullName,
+          identifier: "ADM001",
+      activeRole: "INSTITUTION_ADMIN",
+          activeInstitutionId: suspendedTenant.id,
+          tenantSlug: suspendedTenant.slug,
+          status: "ACTIVE",
+          sessionVersion: 1,
+          tenantStatus: "SUSPENDED",
+        },
+        secret: process.env.NEXTAUTH_SECRET || "development-secret-must-be-at-least-32-chars-long",
+      });
+
+      const req = new Request("http://localhost:3000/api/admin/academic/terms", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          cookie: `next-auth.session-token=${token}`,
+        },
+        body: JSON.stringify({
+          name: "Semester Ganjil 2026/2027",
+          code: "2026-GANJIL",
+          startDate: "2026-09-01",
+          endDate: "2027-01-31",
+        }),
+      });
+
+      const res = await academicTermsPost(req);
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.error).toBe("TENANT_SUSPENDED");
+      expect(body.message).toContain("penangguhan");
+    } finally {
+      await withTenantTransaction(suspendedTenant.id, async (tenantDb) => {
+        await tenantDb.membership.deleteMany({ where: { institutionId: suspendedTenant.id } });
+        await tenantDb.user.deleteMany({ where: { institutionId: suspendedTenant.id } });
+      });
+      await prisma.institution.delete({ where: { id: suspendedTenant.id } });
     }
   });
-  console.log("✅ TEST 1E-3 PASSED: Alur lupa password anti-enumeration dan invalidasi sesi terverifikasi.");
 
-  // ------------------------------------------------------------------
-  // [TEST 1E-4] FALLBACK OTOMATIS WHATSAPP KE SMS SAAT WA GAGAL
-  // ------------------------------------------------------------------
-  console.log("\n[TEST 1E-4] Menguji Fallback Otomatis WhatsApp ke SMS...");
+  it("1E-9: Proteksi /dev/outbox Mengembalikan 404 pada Lingkungan Produksi atau Flag Mati", async () => {
+    const oldEnv = process.env.NODE_ENV;
+    const oldFlag = process.env.DEV_OTP_OUTBOX;
 
-  MockOtpSender.simulateWhatsAppFailure = true;
+    try {
+      // 1. Panggil route /api/dev/outbox lewat request HTTP dengan NODE_ENV=production
+      (process.env as any).NODE_ENV = "production";
+      process.env.DEV_OTP_OUTBOX = "true";
+      const resProd = await devOutboxGet();
+      expect(resProd.status).toBe(404);
+      const bodyProd = await resProd.json();
+      expect(bodyProd.error).toBe("Not Found");
 
-  const fallbackResult = await sendOtpWithFallback(
-    OtpChannel.WHATSAPP,
-    "+6281234567890",
-    "Kode verifikasi: 123456",
-    "123456",
-    { institutionSlug: "poltekmi", purpose: "TEST_FALLBACK" }
-  );
-
-  MockOtpSender.simulateWhatsAppFailure = false;
-
-  assert(fallbackResult.success === true, "Fallback ke SMS harus berhasil meskipun WhatsApp gagal.");
-  assert(fallbackResult.fallbackUsed === true, "Hasil pengiriman wajib menandai fallbackUsed = true.");
-  assert(fallbackResult.channel === OtpChannel.SMS, "Kanal pengiriman akhir harus berubah menjadi SMS.");
-  console.log("✅ TEST 1E-4 PASSED: Fallback otomatis WhatsApp ke SMS berhasil 100%.");
-
-  // ------------------------------------------------------------------
-  // [TEST 1E-5] NOMOR HP TERKUNCI VS LOCKOUT TANGGAL LAHIR
-  // ------------------------------------------------------------------
-  console.log("\n[TEST 1E-5] Menguji Nomor HP Terkunci vs Lockout Tanggal Lahir...");
-
-  await withTenantTransaction(poltekmi!.id, async (tenantDb) => {
-    const budi = await (tenantDb as any).user.findFirst({
-      where: { status: "PENDING_ACTIVATION" },
-    });
-    assert(!!budi, "Data demo Budi Santoso (pending activation) harus ada.");
-
-    let failedAttempts = 0;
-    const wrongDob = "1999-01-01";
-    const actualDob = budi!.birthDate ? budi!.birthDate.toISOString().slice(0, 10) : "2005-04-12";
-
-    for (let i = 1; i <= 5; i++) {
-      if (wrongDob !== actualDob) {
-        failedAttempts++;
+      // 2. Panggil route /api/dev/outbox dengan DEV_OTP_OUTBOX=false
+      (process.env as any).NODE_ENV = "development";
+      process.env.DEV_OTP_OUTBOX = "false";
+      const resFlagOff = await devOutboxGet();
+      expect(resFlagOff.status).toBe(404);
+      const bodyFlagOff = await resFlagOff.json();
+      expect(bodyFlagOff.error).toBe("Not Found");
+    } finally {
+      (process.env as any).NODE_ENV = oldEnv;
+      if (oldFlag !== undefined) {
+        process.env.DEV_OTP_OUTBOX = oldFlag;
+      } else {
+        delete process.env.DEV_OTP_OUTBOX;
       }
     }
-
-    assert(failedAttempts === 5, "Harus tercatat 5 kali kegagalan faktor kedua.");
-    const lockoutUntil = new Date(Date.now() + 15 * 60 * 1000);
-    const lockedUser = await (tenantDb as any).user.update({
-      where: { id: budi!.id },
-      data: { failedLoginAttempts: failedAttempts, lockedUntil: lockoutUntil },
-    });
-
-    assert(
-      lockedUser.lockedUntil !== null && lockedUser.lockedUntil > new Date(),
-      "Pengguna harus berstatus terkunci sementara setelah 5 kali gagal verifikasi DOB."
-    );
-
-    // Pulihkan
-    await (tenantDb as any).user.update({
-      where: { id: budi!.id },
-      data: { failedLoginAttempts: 0, lockedUntil: null },
-    });
-  });
-  console.log("✅ TEST 1E-5 PASSED: Proteksi tanggal lahir dan lockout 5 kali gagal terverifikasi.");
-
-  // ------------------------------------------------------------------
-  // [TEST 1E-6] ADMIN RESET AKSES: WAJIB ALASAN & KEMBALI KE PASSWORD AWAL
-  // ------------------------------------------------------------------
-  console.log("\n[TEST 1E-6] Menguji Admin Reset Akses Pengguna...");
-
-  await withTenantTransaction(poltekmi!.id, async (tenantDb) => {
-    const testStudent = await (tenantDb as any).user.findFirst({
-      where: { status: "ACTIVE" },
-    });
-    assert(!!testStudent, "User active untuk uji reset harus ada.");
-
-    const originalHash = testStudent!.passwordHash;
-    const resetInitialHash = await hashPassword(testStudent!.id);
-    const resetUser = await (tenantDb as any).user.update({
-      where: { id: testStudent!.id },
-      data: {
-        passwordHash: resetInitialHash,
-        status: "PENDING_ACTIVATION",
-        mustChangePassword: true,
-        sessionVersion: { increment: 1 },
-      },
-    });
-
-    assert(
-      resetUser.status === "PENDING_ACTIVATION",
-      "Status akun setelah reset oleh admin wajib menjadi PENDING_ACTIVATION."
-    );
-    assert(
-      resetUser.mustChangePassword === true,
-      "mustChangePassword wajib menjadi true setelah reset oleh admin."
-    );
-
-    // Pulihkan kembali ke status dan password semula
-    await (tenantDb as any).user.update({
-      where: { id: testStudent!.id },
-      data: { status: "ACTIVE", mustChangePassword: false, passwordHash: originalHash },
-    });
-  });
-  console.log("✅ TEST 1E-6 PASSED: Reset akses oleh admin mengembalikan PENDING_ACTIVATION dan invalidasi sesi.");
-
-  // ------------------------------------------------------------------
-  // [TEST 1E-7] DUA AKUN DENGAN NOMOR HP SAMA TIDAK BISA SALING MENGAKSES
-  // ------------------------------------------------------------------
-  console.log("\n[TEST 1E-7] Menguji Isolasi Dua Akun dengan Nomor HP Sama...");
-
-  const sharedPhone = "+6281299990088";
-  await prisma.otpChallenge.deleteMany({ where: { destinationE164: sharedPhone } });
-
-  // Buat tantangan OTP untuk Anak 1
-  const challenge1 = await issueOtpChallenge({
-    institutionId: poltekmi!.id,
-    destinationE164: sharedPhone,
-    channel: OtpChannel.WHATSAPP,
-    purpose: OtpPurpose.FIRST_ACTIVATION,
   });
 
-  // Verifikasi kode OTP anak 1
-  const outbox1 = await prisma.devOutbox.findFirst({
-    where: { recipient: sharedPhone },
-    orderBy: { createdAt: "desc" },
-  });
-  assert(!!outbox1, "Kode OTP anak 1 harus ada di dev outbox.");
-
-  const verifyRes1 = await verifyOtpCode({
-    challengeId: challenge1.challengeId!,
-    code: outbox1!.code,
-    purpose: OtpPurpose.FIRST_ACTIVATION,
-    expectedDestinationE164: sharedPhone,
-  });
-  assert(verifyRes1.success === true, "Verifikasi anak 1 harus berhasil.");
-
-  // Coba gunakan token anak 1 pada challenge ID acak / anak 2 -> Harus gagal
-  await withTenantTransaction(poltekmi!.id, async (tenantDb) => {
-    const invalidUse = await (tenantDb as any).otpChallenge.findFirst({
-      where: {
-        id: "fake-child-2-challenge-id",
-        verificationToken: verifyRes1.verificationToken,
-      },
-    });
-    assert(invalidUse === null, "Token verifikasi anak 1 tidak boleh bisa dipakai anak 2!");
-  });
-  console.log("✅ TEST 1E-7 PASSED: Dua akun nomor HP sama tidak saling membocorkan token verifikasi.");
-
-  // ------------------------------------------------------------------
-  // [TEST 1E-8] TENANT SUSPENDED: READ-ONLY MODE
-  // ------------------------------------------------------------------
-  console.log("\n[TEST 1E-8] Menguji Tenant SUSPENDED (Mode Read-Only)...");
-
-  const suspendedTenant = await prisma.institution.create({
-    data: {
-      name: "Institut Terhenti Demo",
-      slug: "institut-terhenti",
-      type: "UNIVERSITY",
-      status: "SUSPENDED",
-      emailDomain: "terhenti.ac.id",
-    },
-  });
-
-  assert(suspendedTenant.status === "SUSPENDED", "Status tenant uji harus SUSPENDED.");
-  assert(suspendedTenant.status === "SUSPENDED", "Sistem wajib menandai tenant SUSPENDED sebagai read-only.");
-
-  await prisma.institution.delete({ where: { id: suspendedTenant.id } });
-  console.log("✅ TEST 1E-8 PASSED: Status SUSPENDED menolak operasi tulis (read-only mode).");
-
-  // ------------------------------------------------------------------
-  // [TEST 1E-9] PROTEKSI /dev/outbox: 404 PADA PRODUKSI / FLAG MATI
-  // ------------------------------------------------------------------
-  console.log("\n[TEST 1E-9] Menguji Proteksi /dev/outbox (404 pada Produksi)...");
-
-  const isProd = true;
-  const isFlagOff = false;
-  const shouldReturn404 = isProd || !isFlagOff;
-  assert(
-    shouldReturn404 === true,
-    "/dev/outbox wajib mengembalikan 404 pada environment produksi atau flag mati."
-  );
-  console.log("✅ TEST 1E-9 PASSED: /dev/outbox terproteksi 404 dari akses publik produksi.");
-
-  // ------------------------------------------------------------------
-  // [TEST 1E-10] KUOTA PENGGUNA (checkLimit maxActiveUsers)
-  // ------------------------------------------------------------------
-  console.log("\n[TEST 1E-10] Menguji Kuota maxActiveUsers...");
-
-  // Poltekmi memiliki plan PRO (maxActiveUsers: 1000). Uji saat melebihi batas.
-  const limitStarter = await checkLimit(poltekmi!.id, "maxActiveUsers", 1000);
-  assert(
-    limitStarter.allowed === false,
-    "Pembuatan user baru wajib ditolak saat batas maxActiveUsers tercapai."
-  );
-  assert(
-    limitStarter.message !== undefined && limitStarter.message.includes("Batas kuota"),
-    "Pesan penolakan kuota harus informatif dan jelas."
-  );
-  console.log("✅ TEST 1E-10 PASSED: Batas kuota pengguna ditolak dengan pesan yang jelas.");
-
-  console.log("\n==================================================================");
-  console.log("🎉 SELURUH TEST FASE 1E BERHASIL 100% TANPA KESALAHAN!");
-  console.log("==================================================================");
+  it("1E-10: Kuota Pengguna (checkLimit maxActiveUsers) Ditolak saat Melebihi Batas", async () => {
+    const limitStarter = await checkLimit(poltekmi.id, "maxActiveUsers", 1000);
+    expect(limitStarter.allowed).toBe(false);
+    expect(limitStarter.message).toBeDefined();
+    expect(limitStarter.message).toContain("Batas kuota");
   });
 });

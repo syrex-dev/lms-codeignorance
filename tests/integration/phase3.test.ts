@@ -338,7 +338,7 @@ describe("FASE 3: RUANG KELAS, TOPIK, MATERI, & PROGRES BELAJAR", () => {
 
     expect(progressResult.totalCount).toBeGreaterThan(0);
     expect(progressResult.completedCount).toBeGreaterThan(0);
-    expect(progressResult.percentage).toBeGreaterThanOrEqual(50);
+    expect(progressResult.percentage).toBe(Math.round((progressResult.completedCount / progressResult.totalCount) * 100));
   });
 
   // =========================================================================

@@ -392,15 +392,15 @@ async function main() {
     },
   });
 
-  // D. Dosen (DSN001) - ACTIVE
+  // D. Dosen (DSN001) - PENDING_ACTIVATION
   const dosenPass = await hash("DSN001");
   const dosen = await prisma.user.create({
     data: {
       institutionId: kampus.id,
       fullName: "Dr. Hendra Wijaya, M.Kom",
       passwordHash: dosenPass,
-      status: UserStatus.ACTIVE,
-      mustChangePassword: false,
+      status: UserStatus.PENDING_ACTIVATION,
+      mustChangePassword: true,
       phoneE164: "+6281234567004",
       contactEmail: "hendra.dosen@gmail.com",
     },

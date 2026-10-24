@@ -3,34 +3,31 @@ set -e
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-echo "=== 1. CLONING FRESH SCHEMA TO LMS_TEST ==="
-docker exec -i lms-postgres psql -U postgres -c "DROP DATABASE IF EXISTS lms_test;"
-docker exec -i lms-postgres psql -U postgres -c "CREATE DATABASE lms_test;"
-docker exec -i lms-postgres pg_dump -U postgres -d lms_db --schema-only | docker exec -i lms-postgres psql -U postgres -d lms_test -q
+# 1. Memuat konfigurasi environment pengujian dari .env.test atau .env
+if [ -f .env.test ]; then
+  export $(grep -v '^#' .env.test | grep -v '^$' | xargs)
+elif [ -f .env ]; then
+  export $(grep -v '^#' .env | grep -v '^$' | xargs)
+fi
 
-echo "=== 2. CONFIGURING ROLES & PERMISSIONS ON LMS_TEST ==="
-docker exec -i lms-postgres psql -U postgres -d lms_test << 'SQL'
-GRANT CONNECT ON DATABASE lms_test TO lms_app;
-GRANT CONNECT ON DATABASE lms_test TO lms_platform;
+: "${TEST_DATABASE_URL:?TEST_DATABASE_URL wajib diset di .env.test atau .env}"
+: "${TEST_APP_DATABASE_URL:?TEST_APP_DATABASE_URL wajib diset di .env.test atau .env}"
 
-GRANT USAGE ON SCHEMA public TO lms_app;
-GRANT USAGE ON SCHEMA public TO lms_platform;
+# 2. Reset database lms_test agar bersih dari sisa migrasi/tipe enum lama
+echo "=== 0. RESET SCHEMA PUBLIC PADA LMS_TEST ==="
+CLEAN_URL="${TEST_DATABASE_URL%%\?*}"
+psql "$CLEAN_URL" -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO postgres; GRANT ALL ON SCHEMA public TO public; GRANT ALL ON SCHEMA public TO lms_app; GRANT ALL ON SCHEMA public TO lms_platform;"
 
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO lms_platform;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO lms_platform;
+# 3. Migrasi lms_test menggunakan prisma migrate deploy (DIRECT_URL ke lms_test)
+# Semua hak akses (GRANT USAGE, SELECT/INSERT/UPDATE/DELETE, ALTER DEFAULT PRIVILEGES, dan REVOKE pada AuditLog)
+# diberikan langsung oleh migrasi prisma tanpa langkah GRANT manual.
+export DATABASE_URL="$TEST_DATABASE_URL"
+export DIRECT_URL="$TEST_DATABASE_URL"
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO lms_app;
-GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO lms_app;
+echo "=== 1. MENJALANKAN PRISMA MIGRATE DEPLOY PADA DATABASE LMS_TEST ==="
+npx prisma migrate deploy
 
--- Append-Only: Cabut UPDATE & DELETE pada tabel AuditLog dan PlatformAuditLog dari lms_app
-REVOKE UPDATE, DELETE, TRUNCATE ON "AuditLog" FROM lms_app;
-REVOKE UPDATE, DELETE, TRUNCATE ON "PlatformAuditLog" FROM lms_app;
-SQL
-
-echo "=== 3. SEEDING DEMO DATA TO LMS_TEST ==="
-export DATABASE_URL="postgresql://postgres:postgres123@127.0.0.1:5432/lms_test?schema=public"
-export DIRECT_URL="postgresql://postgres:postgres123@127.0.0.1:5432/lms_test?schema=public"
-
+echo "=== 2. SEEDING DEMO DATA PADA DATABASE LMS_TEST ==="
 npx tsx prisma/seed.ts
 
-echo "=== LMS_TEST IS READY FOR TESTS ==="
+echo "=== LMS_TEST TELAH SIAP UNTUK PENGUJIAN ==="

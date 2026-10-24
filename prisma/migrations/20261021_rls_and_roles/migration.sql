@@ -2,21 +2,29 @@
 -- MIGRATION: Row-Level Security (RLS) & Non-Superuser Role Setup
 -- ====================================================================
 
--- 1. Pastikan role non-superuser lms_app ada
+-- 1. Pastikan role non-superuser lms_app dan lms_platform ada
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'lms_app') THEN
-    CREATE ROLE lms_app WITH LOGIN PASSWORD 'app_secure_password_123' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+    CREATE ROLE lms_app NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
   END IF;
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'lms_platform') THEN
+    CREATE ROLE lms_platform NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS;
+  END IF;
+  EXECUTE format('GRANT CONNECT ON DATABASE %I TO lms_app;', current_database());
+  EXECUTE format('GRANT CONNECT ON DATABASE %I TO lms_platform;', current_database());
 END
 $$;
 
-GRANT CONNECT ON DATABASE lms_db TO lms_app;
-GRANT USAGE ON SCHEMA public TO lms_app;
+GRANT USAGE ON SCHEMA public TO lms_app, lms_platform;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO lms_app;
-GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO lms_app;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO lms_platform;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO lms_app, lms_platform;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO lms_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO lms_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO lms_platform;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO lms_app, lms_platform;
+REVOKE UPDATE, DELETE, TRUNCATE ON "AuditLog" FROM lms_app;
+REVOKE UPDATE, DELETE, TRUNCATE ON "PlatformAuditLog" FROM lms_app;
 
 -- 2. Terapkan RLS dan Force RLS pada tabel bertenant ketat (institutionId NOT NULL)
 DO $$

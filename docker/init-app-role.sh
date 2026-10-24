@@ -2,8 +2,8 @@
 set -e
 
 # Membaca password dari environment variable (tanpa hardcode di repo)
-APP_PASSWORD="${LMS_APP_DB_PASSWORD:-app_sec_pwd_9a8b7c6d5e4f3a2b1c}"
-PLATFORM_PASSWORD="${LMS_PLATFORM_DB_PASSWORD:-platform_sec_pwd_1a2b3c4d5e6f7a8b9c}"
+APP_PASSWORD="${LMS_APP_DB_PASSWORD:?LMS_APP_DB_PASSWORD wajib diset di environment}"
+PLATFORM_PASSWORD="${LMS_PLATFORM_DB_PASSWORD:?LMS_PLATFORM_DB_PASSWORD wajib diset di environment}"
 TARGET_DB="${POSTGRES_DB:-lms_db}"
 
 echo "Inisialisasi role lms_app dan lms_platform pada database $TARGET_DB..."

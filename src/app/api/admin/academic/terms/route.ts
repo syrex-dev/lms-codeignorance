@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/guard";
 import { prisma } from "@/lib/db/prisma";
+import { withTenantTransaction } from "@/lib/db/tenant-prisma";
 import { UserRole } from "@prisma/client";
 
 export async function GET(req: Request) {
@@ -11,14 +12,16 @@ export async function GET(req: Request) {
     }
 
     const { institutionId } = guard;
-    const terms = await prisma.academicTerm.findMany({
-      where: { institutionId, deletedAt: null },
-      orderBy: { startDate: "desc" },
-      include: {
-        _count: {
-          select: { classCourses: true },
+    const terms = await withTenantTransaction(institutionId, async (tenantDb) => {
+      return tenantDb.academicTerm.findMany({
+        where: { institutionId, deletedAt: null },
+        orderBy: { startDate: "desc" },
+        include: {
+          _count: {
+            select: { classCourses: true },
+          },
         },
-      },
+      });
     });
 
     return NextResponse.json({ terms });

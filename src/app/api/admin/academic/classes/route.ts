@@ -2,6 +2,7 @@ import { UserRole } from "@prisma/client";
 import { requireSession } from "@/lib/auth/guard";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { withTenantTransaction } from "@/lib/db/tenant-prisma";
 
 export async function GET(req: Request) {
   try {
@@ -33,7 +34,7 @@ export async function GET(req: Request) {
       };
     }
 
-    const classes = await prisma.classCourse.findMany({
+    const classes = await withTenantTransaction(institutionId, async (tenantDb) => tenantDb.classCourse.findMany({
       where,
       orderBy: { code: "asc" },
       include: {
@@ -48,7 +49,7 @@ export async function GET(req: Request) {
           select: { enrollments: true },
         },
       },
-    });
+    }));
 
     return NextResponse.json({ classes });
   } catch (error: any) {

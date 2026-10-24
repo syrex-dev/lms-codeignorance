@@ -1,5 +1,7 @@
 "use client";
 
+import * as Dialog from "@radix-ui/react-dialog";
+
 import React, { useState, useEffect, use } from "react";
 import {
   Users,
@@ -263,7 +265,7 @@ export default function UserManagementPage({
         title="Manajemen pengguna"
         description="Kelola akun pengguna, status aktivasi, dan kredensial institusi."
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               onClick={() => {
                 setCreatedCardData(null);
@@ -385,70 +387,113 @@ export default function UserManagementPage({
             description="Sesuaikan kata kunci pencarian atau filter yang Anda pilih."
           />
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nama lengkap</TableHead>
-                  <TableHead>ID / NIM / NIS</TableHead>
-                  <TableHead>Peran</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Kontak handphone</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((u) => (
-                  <TableRow key={u.id}>
-                    <TableCell>
-                      <div className="font-medium text-[#111827]">
-                        {u.fullName}
-                      </div>
-                      <div className="text-xs text-[#6B7280] font-mono mt-0.5">
-                        {u.loginEmail}
-                      </div>
-                    </TableCell>
-
-                    <TableCell className="font-mono text-xs text-[#374151]">
-                      {u.identifier}
-                    </TableCell>
-
-                    <TableCell>
-                      {getRoleBadge(u.role)}
-                    </TableCell>
-
-                    <TableCell>
-                      {u.isPendingActivation ? (
-                        <Badge variant="warning">Belum aktivasi</Badge>
-                      ) : (
-                        <Badge variant="success">Aktif</Badge>
-                      )}
-                    </TableCell>
-
-                    <TableCell className="text-[#4B5563] font-mono text-xs">
-                      {u.phoneE164 || "-"}
-                    </TableCell>
-
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedUser(u);
-                          setResetReason("");
-                          setResetResult(null);
-                          setShowResetModal(true);
-                        }}
-                        className="text-xs text-[#1F4E8C] hover:bg-[#F6F7F9]"
-                      >
-                        <KeyRound className="w-3.5 h-3.5 mr-1" />
-                        Reset akses
-                      </Button>
-                    </TableCell>
+          <div className="w-full max-w-full min-w-0 overflow-x-auto">
+            {/* Desktop Table View (sm:block) */}
+            <div className="hidden sm:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nama lengkap</TableHead>
+                    <TableHead>ID / NIM / NIS</TableHead>
+                    <TableHead>Peran</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Kontak handphone</TableHead>
+                    <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {users.map((u) => (
+                    <TableRow key={u.id}>
+                      <TableCell>
+                        <div className="font-medium text-[#111827]">
+                          {u.fullName}
+                        </div>
+                        <div className="text-xs text-[#6B7280] font-mono mt-0.5">
+                          {u.loginEmail}
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="font-mono text-xs text-[#374151]">
+                        {u.identifier}
+                      </TableCell>
+
+                      <TableCell>
+                        {getRoleBadge(u.role)}
+                      </TableCell>
+
+                      <TableCell>
+                        {u.isPendingActivation ? (
+                          <Badge variant="warning">Belum aktivasi</Badge>
+                        ) : (
+                          <Badge variant="success">Aktif</Badge>
+                        )}
+                      </TableCell>
+
+                      <TableCell className="text-[#4B5563] font-mono text-xs">
+                        {u.phoneE164 || "-"}
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedUser(u);
+                            setResetReason("");
+                            setResetResult(null);
+                            setShowResetModal(true);
+                          }}
+                          className="text-xs text-[#1F4E8C] hover:bg-[#F6F7F9]"
+                        >
+                          <KeyRound className="w-3.5 h-3.5 mr-1" />
+                          Reset akses
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Mobile Card View (sm:hidden) */}
+            <div className="sm:hidden divide-y divide-[#E3E6EB] p-2 space-y-3">
+              {users.map((u) => (
+                <div key={u.id} className="p-3 bg-white border border-[#E3E6EB] rounded-[8px] space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-medium text-sm text-[#111827]">{u.fullName}</div>
+                      <div className="text-xs text-[#6B7280] font-mono">{u.loginEmail}</div>
+                    </div>
+                    {getRoleBadge(u.role)}
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-[#4B5563]">
+                    <span className="font-mono">{u.identifier}</span>
+                    {u.isPendingActivation ? (
+                      <Badge variant="warning">Belum aktivasi</Badge>
+                    ) : (
+                      <Badge variant="success">Aktif</Badge>
+                    )}
+                  </div>
+                  <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between">
+                    <span className="text-xs text-[#6B7280] font-mono">{u.phoneE164 || "-"}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedUser(u);
+                        setResetReason("");
+                        setResetResult(null);
+                        setShowResetModal(true);
+                      }}
+                      className="text-xs text-[#1F4E8C] hover:bg-[#F6F7F9]"
+                    >
+                      <KeyRound className="w-3.5 h-3.5 mr-1" />
+                      Reset akses
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -573,6 +618,19 @@ export default function UserManagementPage({
                   </div>
                 </div>
 
+                {/* Live Preview Box */}
+                <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[8px] space-y-1.5 text-xs">
+                  <div className="text-[11px] font-semibold text-[#64748B]">Pratinjau Langsung Kredensial:</div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#475569]">Nomor Induk:</span>
+                    <strong className="font-mono text-[#0F172A]">{addForm.id || "(Auto-generate)"}</strong>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#475569]">Email Login:</span>
+                    <strong className="font-mono text-[#0F172A]">{addForm.id ? `${addForm.id}@${tenantSlug}.ac.id` : `[id]@${tenantSlug}.ac.id`}</strong>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-[#374151] mb-1">
@@ -633,95 +691,100 @@ export default function UserManagementPage({
         </div>
       )}
 
-      {/* MODAL 2: RESET AKSES PENGGUNA */}
-      {showResetModal && selectedUser && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white border border-[#E3E6EB] rounded-lg max-w-md w-full p-6 shadow-md relative">
-            <h2 className="text-base font-semibold text-[#111827] flex items-center gap-2 mb-2">
-              <KeyRound className="w-5 h-5 text-[var(--tenant-primary)]" />
-              Reset Akses Pengguna
-            </h2>
-            <p className="text-xs text-[#6B7280] mb-4">
-              Pengguna: <b className="text-[#111827]">{selectedUser.fullName}</b> ({selectedUser.identifier})
-            </p>
+      {/* MODAL 2: RESET AKSES PENGGUNA (Radix UI Dialog dengan Focus Trap & Tombol Spesifik) */}
+      <Dialog.Root open={showResetModal} onOpenChange={setShowResetModal}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs animate-in fade-in" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-white border border-[#E2E8F0] rounded-[12px] max-w-md w-full p-6 shadow-xl focus:outline-none">
+            {selectedUser && (
+              <>
+                <Dialog.Title className="text-base font-bold text-[#0F172A] flex items-center gap-2 mb-1">
+                  <KeyRound className="w-5 h-5 text-[#1E40AF]" />
+                  Reset Akses Pengguna
+                </Dialog.Title>
+                <Dialog.Description className="text-xs text-[#64748B] mb-4">
+                  Pengguna: <strong className="text-[#0F172A]">{selectedUser.fullName}</strong> ({selectedUser.identifier})
+                </Dialog.Description>
 
-            {resetResult ? (
-              <div className="space-y-4">
-                <div className="p-3 bg-[#F0FDF4] border border-[#BBF7D0] rounded-md text-xs text-[#15803D]">
-                  <div className="font-semibold mb-1">Akses berhasil direset!</div>
-                  <p className="text-[#4B5563]">
-                    {resetResult.message || "Pengguna kini dapat melakukan login dan aktivasi kembali."}
-                  </p>
-                </div>
-
-                {resetResult.newInitialPasswordPlain && (
-                  <div className="p-3 bg-[#FFFBEB] border border-[#FDE68A] rounded-md text-xs">
-                    <div className="font-medium text-[#92400E]">Password sementara baru:</div>
-                    <div className="text-sm font-mono font-bold text-[#111827] mt-1">
-                      {resetResult.newInitialPasswordPlain}
+                {resetResult ? (
+                  <div className="space-y-4">
+                    <div className="p-3 bg-[#F0FDF4] border border-[#BBF7D0] rounded-[8px] text-xs text-[#15803D]">
+                      <div className="font-semibold mb-1">Akses berhasil direset!</div>
+                      <p className="text-[#475569]">
+                        {resetResult.message || "Pengguna kini dapat melakukan login dan aktivasi kembali."}
+                      </p>
                     </div>
+
+                    {resetResult.newInitialPasswordPlain && (
+                      <div className="p-3 bg-[#FFFBEB] border border-[#FDE68A] rounded-[8px] text-xs">
+                        <div className="font-medium text-[#92400E]">Password sementara baru:</div>
+                        <div className="text-sm font-mono font-bold text-[#0F172A] mt-1">
+                          {resetResult.newInitialPasswordPlain}
+                        </div>
+                      </div>
+                    )}
+
+                    <Button
+                      onClick={() => setShowResetModal(false)}
+                      className="w-full"
+                    >
+                      Tutup
+                    </Button>
                   </div>
+                ) : (
+                  <form onSubmit={handleResetAccess} className="space-y-3.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#334155] mb-1">
+                        Tindakan reset
+                      </label>
+                      <Select
+                        aria-label="Pilih jenis tindakan reset"
+                        value={resetActionType}
+                        onChange={(e: any) => setResetActionType(e.target.value)}
+                      >
+                        <option value="PASSWORD_ONLY">Reset password ke awal</option>
+                        <option value="PASSWORD_AND_PHONE">Reset password dan nomor handphone</option>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-[#334155] mb-1">
+                        Alasan reset *
+                      </label>
+                      <textarea
+                        required
+                        rows={3}
+                        value={resetReason}
+                        onChange={(e) => setResetReason(e.target.value)}
+                        placeholder="Contoh: Mahasiswa lupa password dan nomor HP ganti"
+                        className="w-full p-2.5 bg-white border border-[#CBD5E1] rounded-[8px] text-xs text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#1E40AF]"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowResetModal(false)}
+                      >
+                        Batal
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={resetLoading}
+                      >
+                        {resetLoading ? "Memproses..." : `Reset akses ${selectedUser.fullName}`}
+                      </Button>
+                    </div>
+                  </form>
                 )}
-
-                <Button
-                  onClick={() => setShowResetModal(false)}
-                  className="w-full"
-                >
-                  Tutup
-                </Button>
-              </div>
-            ) : (
-              <form onSubmit={handleResetAccess} className="space-y-3.5">
-                <div>
-                  <label className="block text-xs font-medium text-[#374151] mb-1">
-                    Tindakan reset
-                  </label>
-                  <Select
-                    aria-label="Pilih jenis tindakan reset"
-                    value={resetActionType}
-                    onChange={(e: any) => setResetActionType(e.target.value)}
-                  >
-                    <option value="PASSWORD_ONLY">Reset password ke awal</option>
-                    <option value="PASSWORD_AND_PHONE">Reset password dan nomor handphone</option>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-[#374151] mb-1">
-                    Alasan reset *
-                  </label>
-                  <textarea
-                    required
-                    rows={3}
-                    value={resetReason}
-                    onChange={(e) => setResetReason(e.target.value)}
-                    placeholder="Contoh: Mahasiswa lupa password dan nomor HP ganti"
-                    className="w-full p-2.5 bg-white border border-[#E3E6EB] rounded-md text-sm text-[#111827] focus:outline-none focus:ring-1 focus:ring-[var(--tenant-primary)] focus:border-[var(--tenant-primary)]"
-                  />
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowResetModal(false)}
-                  >
-                    Batal
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={resetLoading}
-                  >
-                    {resetLoading ? "Memproses..." : "Konfirmasi Reset"}
-                  </Button>
-                </div>
-              </form>
+              </>
             )}
-          </div>
-        </div>
-      )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
-      {/* MODAL 3: IMPOR CSV */}
+            {/* MODAL 3: IMPOR CSV */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white border border-[#E3E6EB] rounded-lg max-w-2xl w-full p-6 shadow-md relative">

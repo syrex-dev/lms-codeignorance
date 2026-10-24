@@ -182,9 +182,9 @@ export default function AcademicManagementPage({
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto space-y-6 min-w-0 max-w-full">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 min-w-0 max-w-full">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <GraduationCap className="h-7 w-7 text-indigo-600" />
@@ -195,7 +195,7 @@ export default function AcademicManagementPage({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {activeTab === "terms" && (
             <button
               onClick={() => setShowTermModal(true)}
@@ -229,7 +229,7 @@ export default function AcademicManagementPage({
       {/* Notifications */}
       {error && (
         <div className="p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg flex items-center justify-between text-red-700 dark:text-red-300">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <AlertTriangle className="h-5 w-5" />
             <span>{error}</span>
           </div>
@@ -239,7 +239,7 @@ export default function AcademicManagementPage({
 
       {success && (
         <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg flex items-center justify-between text-emerald-700 dark:text-emerald-300">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <CheckCircle2 className="h-5 w-5" />
             <span>{success}</span>
           </div>
@@ -248,7 +248,7 @@ export default function AcademicManagementPage({
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800 gap-4">
+      <div className="flex border-b border-slate-200 dark:border-slate-800 gap-4 overflow-x-auto scrollbar-none max-w-full min-w-0 pb-1">
         <button
           onClick={() => setActiveTab("terms")}
           className={`pb-3 text-sm font-medium flex items-center gap-2 border-b-2 transition ${
@@ -337,8 +337,8 @@ export default function AcademicManagementPage({
 
           {/* TAB 2: COURSES */}
           {activeTab === "courses" && (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
-              <table className="w-full text-left text-sm">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-x-auto max-w-full min-w-0">
+              <table className="w-full text-left text-sm min-w-[600px]">
                 <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 font-medium border-b border-slate-200 dark:border-slate-800">
                   <tr>
                     <th className="px-4 py-3">Kode</th>

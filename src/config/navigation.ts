@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client";
+﻿import { UserRole } from "@prisma/client";
 import { type FeatureKey } from "@/modules/saas/entitlement";
 
 export interface NavigationItem {
@@ -9,20 +9,22 @@ export interface NavigationItem {
   feature?: FeatureKey;
   status: "ready" | "planned";
   iconName: string;
+  section?: "AKADEMIK" | "ADMIN" | "PENGATURAN";
 }
 
 /**
  * Registry Navigasi Terpusat Aplikasi LMS Multi-Tenant
- * Hanya item dengan status 'ready' yang akan dirender pada sidebar aplikasi
- * sampai modul terkait selesai diimplementasikan dan lulus pengujian.
+ * Hanya item dengan status 'ready' yang akan dirender pada navigasi aplikasi.
  */
 export const NAVIGATION_REGISTRY: NavigationItem[] = [
+  // 1. Seksi Utama / Akademik
   {
     key: "dashboard",
     labelKey: "Dashboard",
     href: (tenantSlug: string) => `/${tenantSlug}/dashboard`,
     status: "ready",
     iconName: "LayoutDashboard",
+    section: "AKADEMIK",
   },
   {
     key: "classes",
@@ -31,8 +33,49 @@ export const NAVIGATION_REGISTRY: NavigationItem[] = [
     feature: "classroom",
     status: "ready",
     iconName: "BookOpen",
+    section: "AKADEMIK",
   },
-  // Modul-modul masa depan yang sedang direncanakan (status: 'planned')
+
+  // 2. Seksi Administrasi Institusi (Khusus Admin)
+  {
+    key: "admin_users",
+    labelKey: "Manajemen Pengguna",
+    href: (tenantSlug: string) => `/${tenantSlug}/admin/users`,
+    roles: [UserRole.INSTITUTION_ADMIN, UserRole.SUPER_ADMIN],
+    status: "ready",
+    iconName: "Users",
+    section: "ADMIN",
+  },
+  {
+    key: "admin_academic",
+    labelKey: "Manajemen Akademik",
+    href: (tenantSlug: string) => `/${tenantSlug}/admin/academic`,
+    roles: [UserRole.INSTITUTION_ADMIN, UserRole.SUPER_ADMIN],
+    status: "ready",
+    iconName: "GraduationCap",
+    section: "ADMIN",
+  },
+  {
+    key: "admin_settings",
+    labelKey: "Pengaturan Institusi",
+    href: (tenantSlug: string) => `/${tenantSlug}/admin/settings`,
+    roles: [UserRole.INSTITUTION_ADMIN, UserRole.SUPER_ADMIN],
+    status: "ready",
+    iconName: "Settings",
+    section: "ADMIN",
+  },
+
+  // 3. Seksi Pengaturan Akun (Semua Peran)
+  {
+    key: "profile",
+    labelKey: "Profil & Akun",
+    href: (tenantSlug: string) => `/${tenantSlug}/profile`,
+    status: "ready",
+    iconName: "User",
+    section: "PENGATURAN",
+  },
+
+  // Modul Rencana Mendatang (status: 'planned')
   {
     key: "schedule",
     labelKey: "Jadwal",
@@ -46,50 +89,6 @@ export const NAVIGATION_REGISTRY: NavigationItem[] = [
     href: (tenantSlug: string) => `/${tenantSlug}/assignments`,
     status: "planned",
     iconName: "CheckSquare",
-  },
-  {
-    key: "attendance",
-    labelKey: "Presensi",
-    href: (tenantSlug: string) => `/${tenantSlug}/attendance`,
-    status: "planned",
-    iconName: "Calendar",
-  },
-  {
-    key: "gradebook",
-    labelKey: "Nilai & Rapor",
-    href: (tenantSlug: string) => `/${tenantSlug}/gradebook`,
-    status: "planned",
-    iconName: "Award",
-  },
-  {
-    key: "announcements",
-    labelKey: "Pengumuman",
-    href: (tenantSlug: string) => `/${tenantSlug}/announcements`,
-    status: "planned",
-    iconName: "Megaphone",
-  },
-  {
-    key: "admission",
-    labelKey: "Penerimaan Siswa/Mhs",
-    href: (tenantSlug: string) => `/${tenantSlug}/admission`,
-    status: "planned",
-    iconName: "UserPlus",
-  },
-  {
-    key: "admin_users",
-    labelKey: "Manajemen Pengguna",
-    href: (tenantSlug: string) => `/${tenantSlug}/admin/users`,
-    roles: [UserRole.INSTITUTION_ADMIN, UserRole.SUPER_ADMIN],
-    status: "planned",
-    iconName: "Users",
-  },
-  {
-    key: "admin_departments",
-    labelKey: "Data Akademik",
-    href: (tenantSlug: string) => `/${tenantSlug}/admin/departments`,
-    roles: [UserRole.INSTITUTION_ADMIN, UserRole.SUPER_ADMIN],
-    status: "planned",
-    iconName: "Building2",
   },
 ];
 

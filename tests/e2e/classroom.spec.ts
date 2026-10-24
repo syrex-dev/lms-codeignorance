@@ -37,7 +37,8 @@ test.describe("E2E Playwright Fase 3: Ruang Kelas, Kurikulum, Materi, & Progres 
     await page.screenshot({ path: "tests/e2e/screenshots/08-teacher-classes-list.png", fullPage: true });
 
     // Masuk ke kelas Pemrograman Web Modern
-    await page.click('a:has-text("Masuk ke Kelas")');
+    const teacherClass = page.locator("div").filter({ hasText: "Pemrograman Web Modern" }).filter({ has: page.locator('a') }).last();
+    await teacherClass.locator('a:has-text("Masuk ke kelas")').click();
     await page.waitForURL("**/poltekmi/classes/**", { timeout: 15000 });
     await page.waitForLoadState("networkidle");
     console.log("Pengajar masuk ke ruang kelas!");
@@ -65,7 +66,7 @@ test.describe("E2E Playwright Fase 3: Ruang Kelas, Kurikulum, Materi, & Progres 
 
     // Tambah Materi Baru di Topik tersebut
     console.log("5. Menambahkan materi baru...");
-    await page.click('button:has-text("➕ Materi")');
+    await page.locator('button:has-text("Tambah materi")').last().click();
     await page.waitForSelector("text=Tambah Materi Pembelajaran", { timeout: 5000 });
 
     const newMaterialTitle = `Materi E2E ${uniqueId}: Panduan Praktikum`;
@@ -98,7 +99,8 @@ test.describe("E2E Playwright Fase 3: Ruang Kelas, Kurikulum, Materi, & Progres 
     // Buka Ruang Kelas
     await page.goto("/poltekmi/classes");
     await page.waitForLoadState("networkidle");
-    await page.click('a:has-text("Masuk ke Kelas")');
+    const studentClass = page.locator("div").filter({ hasText: "Pemrograman Web Modern" }).filter({ has: page.locator('a') }).last();
+    await studentClass.locator('a:has-text("Masuk ke kelas")').click();
     await page.waitForURL("**/poltekmi/classes/**", { timeout: 15000 });
     await page.waitForLoadState("networkidle");
 

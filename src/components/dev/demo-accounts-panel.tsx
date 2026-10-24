@@ -1,6 +1,6 @@
 "use client";
 
-import { Key, UserCheck, ArrowRight } from "lucide-react";
+import { Key, ArrowRight } from "lucide-react";
 
 interface DemoAccount {
   id: string;

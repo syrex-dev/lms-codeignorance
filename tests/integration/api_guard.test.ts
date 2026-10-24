@@ -4,7 +4,8 @@ import path from "path";
 
 /**
  * Allowlist rute API publik / non-tenant yang dikecualikan secara eksplisit dari requireSession.
- * Setiap rute baru di luar daftar ini WAJIB memanggil requireSession.
+ * Sesuai aturan keras Bagian 0.3: HANYA boleh mencakup auth, otp, forgot-password, saas/signup, platform/auth, dev/outbox.
+ * Setiap rute di luar daftar ini WAJIB memanggil requireSession.
  */
 const PUBLIC_API_ALLOWLIST = new Set([
   "src/app/api/auth/[...nextauth]/route.ts",
@@ -13,12 +14,9 @@ const PUBLIC_API_ALLOWLIST = new Set([
   "src/app/api/auth/forgot-password/request/route.ts",
   "src/app/api/auth/forgot-password/reset/route.ts",
   "src/app/api/saas/signup/route.ts",
-  "src/app/api/saas/tenants/[id]/setup/route.ts",
   "src/app/api/dev/outbox/route.ts",
   "src/app/api/platform/auth/login/route.ts",
   "src/app/api/platform/auth/verify-otp/route.ts",
-  "src/app/api/platform/tenants/route.ts",
-  "src/app/api/platform/tenants/[id]/impersonate/route.ts",
 ]);
 
 function getAllRouteFiles(dir: string, baseDir: string): string[] {
@@ -40,7 +38,7 @@ function getAllRouteFiles(dir: string, baseDir: string): string[] {
   return results;
 }
 
-describe("Automated API Security Guard: requireSession Enforcement", () => {
+describe("Automated API Security Guard: requireSession Enforcement (Bagian 0.3)", () => {
   const projectRoot = path.resolve(__dirname, "../..");
   const apiDir = path.join(projectRoot, "src/app/api");
   const allRoutes = getAllRouteFiles(apiDir, projectRoot);
@@ -80,5 +78,9 @@ describe("Automated API Security Guard: requireSession Enforcement", () => {
       const fullPath = path.join(projectRoot, allowedRoute);
       expect(fs.existsSync(fullPath), `Rute allowlist ${allowedRoute} harus ada di disk`).toBe(true);
     }
+  });
+
+  it("Allowlist publik terisolasi ketat sesuai spesifikasi (hanya 9 rute)", () => {
+    expect(PUBLIC_API_ALLOWLIST.size).toBe(9);
   });
 });

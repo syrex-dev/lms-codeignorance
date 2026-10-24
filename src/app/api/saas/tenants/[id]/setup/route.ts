@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { requireSession } from "@/lib/auth/guard";
 import { prisma } from "@/lib/db/prisma";
 import { getTenantPrisma } from "@/lib/db/tenant-prisma";
+import { UserRole } from "@prisma/client";
 
 export async function POST(
   req: Request,
@@ -9,6 +11,21 @@ export async function POST(
   try {
     const resolvedParams = await params;
     const tenantId = resolvedParams.id;
+
+    const guard = await requireSession(req, {
+      requiredRoles: [UserRole.INSTITUTION_ADMIN, UserRole.SUPER_ADMIN],
+    });
+    if (!guard.success) {
+      return guard.response;
+    }
+
+    if (guard.role !== UserRole.SUPER_ADMIN && guard.institutionId !== tenantId) {
+      return NextResponse.json(
+        { error: "Akses setup institusi ditolak." },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
 
     const {

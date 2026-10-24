@@ -1,12 +1,15 @@
 import { notFound } from "next/navigation";
 import { DevOutboxView } from "./dev-outbox-view";
 
-export default function DevOutboxPage() {
-  const isProd = process.env.NODE_ENV === "production";
-  const isFlagEnabled = process.env.DEV_OTP_OUTBOX !== "false";
+export const dynamic = "force-dynamic";
 
-  // Kembalikan 404 (Not Found) jika di production atau flag dimatikan
-  if (isProd || !isFlagEnabled) {
+export default function DevOutboxPage() {
+  const isAllowed =
+    process.env.NODE_ENV !== "production" &&
+    process.env.DEV_OTP_OUTBOX === "true";
+
+  // Kembalikan 404 (Not Found) jika di production atau flag bukan "true"
+  if (!isAllowed) {
     notFound();
   }
 

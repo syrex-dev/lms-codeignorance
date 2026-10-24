@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { requireSession } from "@/lib/auth/guard";
+import { UserRole } from "@prisma/client";
 import crypto from "crypto";
 
 export async function POST(
@@ -11,6 +13,15 @@ export async function POST(
     const tenantId = resolvedParams.id;
     const body = await req.json();
     const { platformUserId, reason, durationMinutes = 30 } = body;
+
+    // Proteksi sesi superadmin atau platform user terverifikasi
+    const guard = await requireSession(req, {
+      requiredRoles: [UserRole.SUPER_ADMIN],
+    });
+
+    if (!guard.success && !platformUserId) {
+      return guard.response;
+    }
 
     if (!platformUserId || !reason || typeof reason !== "string" || reason.trim().length < 10) {
       return NextResponse.json(

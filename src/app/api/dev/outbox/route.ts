@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
-  // Hanya aktif jika bukan produksi DAN flag DEV_OTP_OUTBOX bernilai 'true' secara eksplisit
   const isAllowed =
     process.env.NODE_ENV !== "production" &&
     process.env.DEV_OTP_OUTBOX === "true";

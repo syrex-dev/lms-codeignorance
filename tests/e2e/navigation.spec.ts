@@ -41,6 +41,11 @@ test.describe("B.6 & C Navigasi & Integritas Peran Demo Bebas 404 & Bebas Error 
       page,
     }) => {
       const consoleErrors: string[] = [];
+      page.on("response", (res) => {
+        if (res.status() >= 400) {
+          console.log("FAILED RESOURCE:", res.status(), res.url());
+        }
+      });
       page.on("console", (msg) => {
         if (msg.type() === "error") {
           const text = msg.text();

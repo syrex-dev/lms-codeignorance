@@ -71,7 +71,12 @@ test.describe("E2E Playwright Fase 3: Ruang Kelas, Kurikulum, Materi, & Progres 
 
     const newMaterialTitle = `Materi E2E ${uniqueId}: Panduan Praktikum`;
     await page.fill('input[placeholder="Contoh: Modul 1 - Teori Dasar"]', newMaterialTitle);
-    await page.fill('textarea[placeholder="Tuliskan materi pelajaran di sini..."]', "<p>Langkah praktikum Next.js 16 modular dengan TypeScript.</p>");
+    const editor = page.locator('[role="textbox"][aria-label="Isi Konten Materi"]');
+    if (await editor.isVisible()) {
+      await editor.fill("<p>Langkah praktikum Next.js 16 modular dengan TypeScript.</p>");
+    } else {
+      await page.fill('textarea[placeholder="Tuliskan materi pelajaran di sini..."]', "<p>Langkah praktikum Next.js 16 modular dengan TypeScript.</p>");
+    }
     await page.click('button:has-text("Simpan Materi")');
 
     // Pastikan materi baru muncul
@@ -130,7 +135,7 @@ test.describe("E2E Playwright Fase 3: Ruang Kelas, Kurikulum, Materi, & Progres 
     await markDoneBtn.click();
 
     // Verifikasi tombol berubah menjadi ✓ Selesai
-    await expect(page.locator('button:has-text("✓ Selesai")').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('button:has-text("Selesai Dipelajari"), button:has-text("Selesai")').first()).toBeVisible({ timeout: 10000 });
     await page.screenshot({ path: "tests/e2e/screenshots/12-student-progress-updated.png", fullPage: true });
 
     console.log("🎉 Alur E2E Fase 3 Berhasil Sempurna!");

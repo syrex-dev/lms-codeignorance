@@ -3,7 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { PrismaClient } from "@prisma/client";
 
 test.describe("C.3 Otomasi Aksesibilitas (Axe WCAG 2.1 AA) & Integritas Desain Seluruh Halaman Utama", () => {
-  test.setTimeout(120000);
+  test.setTimeout(180000);
 
   test.beforeAll(async () => {
     const dbUrl = process.env.PLATFORM_DATABASE_URL || process.env.TEST_DATABASE_URL;
@@ -55,6 +55,20 @@ test.describe("C.3 Otomasi Aksesibilitas (Axe WCAG 2.1 AA) & Integritas Desain S
       }).length;
     });
     expect(spacedUppercaseCount, `Ditemukan kapital lebar di ${pageName}`).toBe(0);
+
+    // 4. Verifikasi Tanpa Horizontal Overflow (320px, 390px, 1440px)
+    for (const width of [1440, 390, 320]) {
+      await page.setViewportSize({ width, height: width === 1440 ? 900 : 700 });
+      await page.waitForTimeout(100);
+      const isOverflowing = await page.evaluate(() => {
+        return document.documentElement.scrollWidth > document.documentElement.clientWidth;
+      });
+      expect(
+        isOverflowing,
+        `Horizontal overflow terdeteksi pada ${pageName} di viewport ${width}px`
+      ).toBeFalsy();
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
   };
 
   test("1. Aksesibilitas Halaman Publik: Login & Lupa Sandi", async ({ page }) => {
@@ -79,7 +93,7 @@ test.describe("C.3 Otomasi Aksesibilitas (Axe WCAG 2.1 AA) & Integritas Desain S
     await runA11yScan(page, "Onboarding");
   });
 
-  test("3. Aksesibilitas Mahasiswa: Dashboard, Daftar Kelas, & Profil", async ({ page }) => {
+  test("3. Aksesibilitas Mahasiswa: Dashboard, Kelas, Jadwal, Tugas & Profil", async ({ page }) => {
     await page.context().clearCookies();
     await page.goto("http://localhost:3000/poltekmi/login");
     await page.waitForLoadState("networkidle");
@@ -95,12 +109,20 @@ test.describe("C.3 Otomasi Aksesibilitas (Axe WCAG 2.1 AA) & Integritas Desain S
     await page.waitForLoadState("networkidle");
     await runA11yScan(page, "Daftar Kelas Mahasiswa");
 
+    await page.goto("http://localhost:3000/poltekmi/schedule");
+    await page.waitForLoadState("networkidle");
+    await runA11yScan(page, "Jadwal Mahasiswa");
+
+    await page.goto("http://localhost:3000/poltekmi/assignments");
+    await page.waitForLoadState("networkidle");
+    await runA11yScan(page, "Tugas Mahasiswa");
+
     await page.goto("http://localhost:3000/poltekmi/profile");
     await page.waitForLoadState("networkidle");
     await runA11yScan(page, "Profil Mahasiswa");
   });
 
-  test("4. Aksesibilitas Dosen: Dashboard & Detail Kelas (Split-Pane Materi & Anggota)", async ({ page }) => {
+  test("4. Aksesibilitas Dosen: Dashboard, Split-Pane Kelas (Materi, Anggota, Tugas), Jadwal, & Tugas", async ({ page }) => {
     await page.context().clearCookies();
     await page.goto("http://localhost:3000/poltekmi/login");
     await page.waitForLoadState("networkidle");
@@ -125,9 +147,24 @@ test.describe("C.3 Otomasi Aksesibilitas (Axe WCAG 2.1 AA) & Integritas Desain S
       await page.waitForTimeout(400);
       await runA11yScan(page, "Detail Kelas Anggota");
     }
+
+    const assignmentsTab = page.locator('button:has-text("Tugas & Evaluasi"), [role="tab"]:has-text("Tugas & Evaluasi")');
+    if (await assignmentsTab.isVisible()) {
+      await assignmentsTab.click();
+      await page.waitForTimeout(400);
+      await runA11yScan(page, "Detail Kelas Tugas & Evaluasi");
+    }
+
+    await page.goto("http://localhost:3000/poltekmi/schedule");
+    await page.waitForLoadState("networkidle");
+    await runA11yScan(page, "Jadwal Dosen");
+
+    await page.goto("http://localhost:3000/poltekmi/assignments");
+    await page.waitForLoadState("networkidle");
+    await runA11yScan(page, "Tugas Dosen");
   });
 
-  test("5. Aksesibilitas Admin: Dashboard, Manajemen Pengguna, Akademik, & Pengaturan Institusi", async ({
+  test("5. Aksesibilitas Admin: Dashboard, Pengguna, Akademik, Jadwal, Tugas & Pengaturan (Semua Tab)", async ({
     page,
   }) => {
     await page.context().clearCookies();
@@ -149,8 +186,33 @@ test.describe("C.3 Otomasi Aksesibilitas (Axe WCAG 2.1 AA) & Integritas Desain S
     await page.waitForLoadState("networkidle");
     await runA11yScan(page, "Admin Akademik");
 
+    await page.goto("http://localhost:3000/poltekmi/schedule");
+    await page.waitForLoadState("networkidle");
+    await runA11yScan(page, "Jadwal Admin");
+
+    await page.goto("http://localhost:3000/poltekmi/assignments");
+    await page.waitForLoadState("networkidle");
+    await runA11yScan(page, "Tugas Admin");
+
+    // Pengaturan Tab 1: Identitas & Branding
     await page.goto("http://localhost:3000/poltekmi/admin/settings");
     await page.waitForLoadState("networkidle");
-    await runA11yScan(page, "Pengaturan Institusi");
+    await runA11yScan(page, "Pengaturan Institusi - Branding");
+
+    // Pengaturan Tab 2: Format Nomor Induk (ID)
+    const idgenTab = page.locator('button:has-text("Format Nomor Induk"), [role="tab"]:has-text("Format Nomor Induk")');
+    if (await idgenTab.isVisible()) {
+      await idgenTab.click();
+      await page.waitForTimeout(400);
+      await runA11yScan(page, "Pengaturan Institusi - Format ID");
+    }
+
+    // Pengaturan Tab 3: Log Audit Keamanan
+    const auditTab = page.locator('button:has-text("Log Audit Keamanan"), [role="tab"]:has-text("Log Audit Keamanan")');
+    if (await auditTab.isVisible()) {
+      await auditTab.click();
+      await page.waitForTimeout(400);
+      await runA11yScan(page, "Pengaturan Institusi - Log Audit");
+    }
   });
 });

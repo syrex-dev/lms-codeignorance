@@ -194,6 +194,25 @@ test.describe("C.4 Capture Institutional Multi-Viewport Screenshots & 320px Over
       await captureBoth("class-detail-members");
     }
 
+    const assignmentsTab = page.locator('button:has-text("Tugas & Evaluasi"), [role="tab"]:has-text("Tugas & Evaluasi")');
+    if (await assignmentsTab.isVisible()) {
+      await assignmentsTab.click();
+      await page.waitForTimeout(500);
+      await captureBoth("class-detail-assignments");
+    }
+
+    // Jadwal Perkuliahan
+    console.log("📸 Mengambil screenshot Jadwal Perkuliahan...");
+    await page.goto("http://localhost:3000/poltekmi/schedule");
+    await page.waitForLoadState("networkidle");
+    await captureBoth("schedule");
+
+    // Agregat Tugas & Evaluasi
+    console.log("📸 Mengambil screenshot Agregat Tugas & Evaluasi...");
+    await page.goto("http://localhost:3000/poltekmi/assignments");
+    await page.waitForLoadState("networkidle");
+    await captureBoth("assignments");
+
     // 7. Login Admin (Bambang Sudirjo: adm001 / ADM001)
     console.log("📸 7. Mengambil screenshot Dashboard Admin...");
     await page.context().clearCookies();
@@ -223,6 +242,22 @@ test.describe("C.4 Capture Institutional Multi-Viewport Screenshots & 320px Over
     await page.goto("http://localhost:3000/poltekmi/admin/settings");
     await page.waitForLoadState("networkidle");
     await captureBoth("admin-settings");
+
+    // Tab Format Nomor Induk
+    const idgenTab = page.locator('button:has-text("Format Nomor Induk"), [role="tab"]:has-text("Format Nomor Induk")');
+    if (await idgenTab.isVisible()) {
+      await idgenTab.click();
+      await page.waitForTimeout(500);
+      await captureBoth("admin-settings-idgen");
+    }
+
+    // Tab Log Audit Keamanan
+    const auditTab = page.locator('button:has-text("Log Audit Keamanan"), [role="tab"]:has-text("Log Audit Keamanan")');
+    if (await auditTab.isVisible()) {
+      await auditTab.click();
+      await page.waitForTimeout(500);
+      await captureBoth("admin-settings-audit");
+    }
 
     console.log("🎉 SEMUA SCREENSHOT MULTI-VIEWPORT BERHASIL DIAMBIL SEMPURNA!");
   });

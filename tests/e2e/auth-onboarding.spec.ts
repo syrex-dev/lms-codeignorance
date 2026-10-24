@@ -36,8 +36,9 @@ test.describe("E2E Playwright: Admin Login -> Tambah Pengguna -> Onboarding -> D
 
     const uniqueSeq = Date.now().toString().slice(-4);
     const testCustomId = `230101${uniqueSeq}`;
+    const testUserName = `Siswa Baru E2E ${uniqueSeq}`;
 
-    await page.fill('input[placeholder="Contoh: Muhammad Budiarto"]', `Siswa Baru E2E ${uniqueSeq}`);
+    await page.fill('input[placeholder="Contoh: Muhammad Budiarto"]', testUserName);
     await page.fill('input[placeholder="Kosongkan untuk auto-generate"]', testCustomId);
     const testPhone = `+62812${uniqueSeq}${Math.floor(Math.random() * 900 + 100)}`;
     await page.fill('input[placeholder="Contoh: +628123456789"]', testPhone);
@@ -109,13 +110,51 @@ test.describe("E2E Playwright: Admin Login -> Tambah Pengguna -> Onboarding -> D
     await page.click('button:has-text("Aktifkan Akun & Masuk ke Portal")');
 
     // ------------------------------------------------------------------------
-    // 7. MASUK DASHBOARD
+    // 7. MASUK DASHBOARD & ASSERTION TEKS NYATA
     // ------------------------------------------------------------------------
-    console.log("7. Memastikan pengguna berhasil masuk ke dashboard...");
-    await page.waitForURL("**/poltekmi/dashboard", { timeout: 15000 });
+    console.log("7. Memastikan pengguna berhasil masuk ke dashboard nyata...");
+    await page.waitForURL("**/poltekmi/dashboard", { timeout: 20000 });
     await page.waitForLoadState("networkidle");
-    await page.screenshot({ path: "tests/e2e/screenshots/07-user-dashboard-completed.png", fullPage: true });
 
-    console.log("🎉 Alur E2E Berhasil Sempurna!");
+    // Assertion URL tidak berada di /onboarding
+    expect(page.url()).not.toContain("/onboarding");
+    expect(page.url()).toContain("/poltekmi/dashboard");
+
+    // Assertion teks dashboard nyata: Nama pengguna di heading utama, ucapan selamat datang, dan istilah tenant (Kampus / SKS / Pemetaan Istilah)
+    await expect(page.locator(`h1:has-text('${testUserName}')`)).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("text=Pemetaan Istilah Institusi").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=Dosen (NIDN / NIP)").first()).toBeVisible({ timeout: 10000 });
+
+    // Tangkap screenshot nyata dashboard penuh
+    await page.screenshot({ path: "tests/e2e/screenshots/07-user-dashboard-completed.png", fullPage: true });
+    console.log("🎉 Alur E2E Berhasil Sempurna dan Dashboard Terverifikasi!");
+  });
+
+  test("E2E Negatif: Pengguna PENDING_ACTIVATION dialihkan dari dashboard ke onboarding dan diblokir dari /api/admin/users (403)", async ({ page }) => {
+    // 1. Login dengan akun PENDING_ACTIVATION (Budi Santoso: 2301010011)
+    await page.context().clearCookies();
+    await page.goto("/poltekmi/login");
+    await page.waitForLoadState("networkidle");
+
+    await page.locator('input[type="text"]').first().fill("2301010011");
+    await page.locator('input[type="password"]').fill("2301010011");
+    await page.click('button[type="submit"]');
+
+    // 2. Sistem otomatis mengalihkan ke /onboarding
+    await page.waitForURL("**/poltekmi/onboarding", { timeout: 15000 });
+    expect(page.url()).toContain("/poltekmi/onboarding");
+
+    // 3. Coba paksa navigasi manual langsung ke /[tenant]/dashboard -> Wajib ditendang kembali ke /onboarding
+    await page.goto("/poltekmi/dashboard");
+    await page.waitForURL("**/poltekmi/onboarding", { timeout: 15000 });
+    expect(page.url()).toContain("/poltekmi/onboarding");
+    expect(page.url()).not.toContain("/poltekmi/dashboard");
+
+    // 4. Panggil API non-onboarding (/api/admin/users) -> Wajib ditolak HTTP 403 ONBOARDING_REQUIRED
+    const apiRes = await page.request.get("/api/admin/users");
+    expect(apiRes.status()).toBe(403);
+    const apiBody = await apiRes.json();
+    expect(apiBody.error).toBe("ONBOARDING_REQUIRED");
+    console.log("✅ E2E Negatif Lulus: Sesi PENDING_ACTIVATION dicegat dari dashboard dan API non-onboarding!");
   });
 });

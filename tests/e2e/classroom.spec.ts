@@ -3,6 +3,18 @@ import { test, expect } from "@playwright/test";
 test.describe("E2E Playwright Fase 3: Ruang Kelas, Kurikulum, Materi, & Progres Belajar", () => {
   test.setTimeout(90000);
 
+  test.beforeAll(async () => {
+    // Test yang membutuhkan dosen aktif mengaktifkannya sendiri di setup test, bukan mengubah seed
+    const { PrismaClient } = await import("@prisma/client");
+    const dbUrl = process.env.PLATFORM_DATABASE_URL || process.env.TEST_DATABASE_URL;
+    const prisma = new PrismaClient(dbUrl ? { datasources: { db: { url: dbUrl } } } : undefined);
+    await prisma.user.updateMany({
+      where: { staffProfiles: { some: { employeeNumber: "DSN001" } } },
+      data: { status: "ACTIVE", mustChangePassword: false },
+    });
+    await prisma.$disconnect();
+  });
+
   test("Alur Pengajar (Buat Topik & Materi) -> Siswa (Akses Materi & Tandai Selesai)", async ({ page }) => {
     // ------------------------------------------------------------------------
     // 1. PENGAJAR (DOSEN) LOGIN & MASUK RUANG KELAS

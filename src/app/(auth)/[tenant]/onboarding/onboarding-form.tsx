@@ -155,6 +155,7 @@ export default function OnboardingForm({
       await update({
         status: "ACTIVE",
         mustChangePassword: false,
+        sessionVersion: data.sessionVersion,
       });
 
       setTimeout(() => {

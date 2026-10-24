@@ -4,6 +4,55 @@ Learning Management System (LMS) modern berbasis **Modular Monolith** yang diran
 
 ---
 
+## 🔒 Catatan Keamanan: Rotasi Kredensial & Penghapusan Hardcoded Secrets
+
+> [!WARNING]
+> **PEMBERITAHUAN KEAMANAN (COMPROMISED CREDENTIALS NOTICE):**
+> Seluruh password default yang pernah ter-commit dalam riwayat repositori git sebelumnya (termasuk `postgres123`, `app_secure_password_123`, `app_sec_pwd_9a8b7c6d5e4f3a2b1c`, dan `platform_sec_pwd_1a2b3c4d5e6f7a8b9c`) **dianggap telah bocor (compromised)** dan **TIDAK BOLEH** digunakan dalam lingkungan produksi atau staging.
+> 
+> Seluruh fallback hardcode (seperti `${VAR:-default}` atau `|| "fallback"`) telah **dihapus tuntas** dari seluruh file kode sumber, `docker-compose.yml`, skrip migrasi, skrip database, dan test setup. Repositori kini hanya memuat template placeholder (`.env.example` dan `.env.test.example`). File rahasia sebenarnya disimpan di `.env` dan `.env.test` yang dikecualikan oleh git (`.gitignore`).
+
+---
+
+## 💻 Panduan Setup Lingkungan WSL (Windows Subsystem for Linux)
+
+Untuk memastikan kelancaran eksekusi otomasi, Docker daemon, DNS resolusi internet, dan shell non-interaktif di WSL 2 (Ubuntu), ikuti panduan konfigurasi berikut:
+
+### 1. Autostart Docker Service (Systemd)
+Pastikan systemd aktif di WSL (`/etc/wsl.conf` memuat `[boot]\nsystemd=true`). Aktifkan autostart docker service:
+```bash
+sudo systemctl enable docker
+sudo systemctl start docker
+```
+
+### 2. DNS Resolusi Tetap (Static DNS)
+Secara default, WSL secara dinamis menimpa `/etc/resolv.conf` dengan alamat IP gateway host Windows yang dapat berubah saat beralih jaringan. Untuk membuat DNS tetap dengan DNS publik cadangan:
+1. Tambahkan ke `/etc/wsl.conf`:
+   ```ini
+   [network]
+   generateResolvConf = false
+   ```
+2. Buat file `/etc/resolv.conf` manual:
+   ```text
+   nameserver 1.1.1.1
+   nameserver 8.8.8.8
+   ```
+
+### 3. PATH Node.js untuk Shell Non-Interaktif
+Sub-agen, skrip otomatisasi CI, dan perintah remote mengeksekusi bash dalam mode non-interaktif (`bash -c "..."`). Secara default, `~/.bashrc` memiliki baris penghenti `[ -z "$PS1" ] && return` yang mencegah NVM termuat.
+Tambahkan path binary Node.js di baris paling atas `~/.bashrc` (sebelum baris `[ -z "$PS1" ] && return`):
+```bash
+export PATH="$HOME/.nvm/versions/node/v24.22.0/bin:$PATH"
+```
+
+### 4. Skrip Verifikasi Lingkungan
+Jalankan skrip diagnostik terintegrasi untuk memeriksa kesiapan Docker, PostgreSQL, Node.js, dan konfigurasi `.env`:
+```bash
+./scripts/dev-env.sh
+```
+
+---
+
 ## 🚀 Panduan Menjalankan Proyek
 
 ### Prasyarat
@@ -13,15 +62,17 @@ Learning Management System (LMS) modern berbasis **Modular Monolith** yang diran
 
 ### Langkah Instalasi & Menjalankan
 
-1. **Clone dan Pindah ke Direktori Proyek**:
+1. **Pindah ke Direktori Proyek**:
    ```bash
    cd ~/projects/lms
    ```
 
-2. **Salin Environment Variables**:
+2. **Salin File Konfigurasi Environment**:
    ```bash
    cp .env.example .env
+   cp .env.test.example .env.test
    ```
+   *(Sesuaikan password database yang kuat pada `.env` dan `.env.test`)*.
 
 3. **Jalankan Database PostgreSQL via Docker Compose**:
    ```bash
@@ -29,14 +80,14 @@ Learning Management System (LMS) modern berbasis **Modular Monolith** yang diran
    ```
    *(PostgreSQL 16 akan berjalan di `127.0.0.1:5432` khusus untuk akses lokal)*.
 
-4. **Sinkronisasi Skema Database (Prisma)**:
+4. **Siapkan Database & Jalankan Migrasi**:
    ```bash
-   npx prisma db push
+   npx prisma migrate deploy
    ```
 
 5. **Jalankan Seed Data Demo**:
    ```bash
-   npx prisma db seed
+   npm run seed
    ```
 
 6. **Jalankan Server Pengembangan (Dev Server)**:
@@ -53,7 +104,7 @@ Sistem menggunakan format login **ID resmi** atau **Email Login Virtual** `{ID}@
 Akun baru berstatus `PENDING_ACTIVATION` dan secara otomatis dialihkan ke halaman **Aktivasi Pertama (`/[tenant]/onboarding`)** untuk verifikasi OTP via WhatsApp/SMS dan pembuatan password baru.
 
 > [!TIP]
-> **Simulasi OTP Lokal**: Buka `http://localhost:3000/dev/outbox` untuk melihat kode OTP WhatsApp & SMS yang terkirim saat pengujian lokal.
+> **Simulasi OTP Lokal**: Buka `http://localhost:3000/dev/outbox` untuk melihat kode OTP WhatsApp & SMS yang terkirim saat pengujian lokal (hanya aktif jika `NODE_ENV != production` dan `DEV_OTP_OUTBOX=true`).
 
 ### 1. Perguruan Tinggi: Politeknik Mitra Indonesia (`/poltekmi/login`)
 - **Mahasiswa Baru (Import - Perlu Aktivasi)**:
@@ -101,43 +152,17 @@ Sistem secara otomatis menyesuaikan kosakata dan tampilan antarmuka sesuai tipe 
 
 ---
 
-## 📁 Struktur Modular Monolith
-
-```
-src/
-├── app/                  # Next.js App Router (Auth, Onboarding, Platform, Signup, Dashboard)
-├── components/           # Reusable UI components & providers
-├── lib/
-│   ├── auth/             # Konfigurasi Auth.js Credentials Provider (Tenant-scoped)
-│   ├── db/               # Prisma Client instance
-│   ├── i18n/             # Kamus istilah dinamis Sekolah vs Kampus
-│   ├── security/         # Bcrypt hash, E.164 phone normalizer, & strict password policy
-│   ├── services/         # Layanan konversi admisi & kalkulasi beasiswa
-│   └── storage/          # Abstraksi driver file storage (Local dev & S3 production)
-└── modules/              # Domain Modules
-    ├── otp/              # Mesin OTP WhatsApp/SMS (CSPRNG, HMAC, rate limit, provider adapters)
-    ├── saas/             # Tenant provisioning, slug validator, & entitlement/quota checker
-    ├── auth/             # Login service & session
-    ├── identity/         # ID template generator & virtual email generator
-    ├── master-data/      # Data master akademik
-    ├── users/            # Manajemen pengguna, Kartu Akun, & import CSV
-    ├── classroom/        # Materi & progres belajar
-    ├── assignment/       # Tugas & penilaian
-    ├── quiz/             # Bank soal & mesin kuis ujian
-    ├── attendance/       # Presensi sesi
-    ├── gradebook/        # Buku nilai & IPK/IPS
-    ├── schedule/         # Modul jadwal bebas bentrok (Fase 6B)
-    ├── communication/    # Pengumuman & forum diskusi
-    ├── dashboard/        # Dashboard per peran & kalender terpadu
-    └── admission/        # Portal PPDB & PMB online terintegrasi
-```
-
----
-
 ## 🧪 Menjalankan Pengujian
 
-Menjalankan pengujian otomatis untuk alur autentikasi, OTP, aktivasi pertama, dan fondasi SaaS:
+Seluruh pengujian dijalankan pada database terisolasi `lms_test` (direset, dimigrasi, dan di-seed secara otomatis sebelum pengujian):
+
 ```bash
-# Uji Test Suite Komprehensif Fase 1C & Fase 1D
-npx tsx tests/unit/phase1c_phase1d_test.ts
+# 1. Menjalankan Unit & Integration Test Suite (Vitest)
+npm test
+
+# Mode Rinci (Verbose) per Kasus Uji
+npx vitest run --reporter=verbose
+
+# 2. Menjalankan End-to-End Test Suite (Playwright - Desktop Chrome & Mobile Chrome)
+npm run test:e2e
 ```

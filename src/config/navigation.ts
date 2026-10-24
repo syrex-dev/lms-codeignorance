@@ -80,15 +80,18 @@ export const NAVIGATION_REGISTRY: NavigationItem[] = [
     key: "schedule",
     labelKey: "Jadwal",
     href: (tenantSlug: string) => `/${tenantSlug}/schedule`,
-    status: "planned",
+    status: "ready",
     iconName: "Clock",
+    section: "AKADEMIK",
   },
   {
     key: "assignments",
-    labelKey: "Tugas & Ujian",
+    labelKey: "Tugas & Penilaian",
     href: (tenantSlug: string) => `/${tenantSlug}/assignments`,
-    status: "planned",
+    feature: "classroom",
+    status: "ready",
     iconName: "CheckSquare",
+    section: "AKADEMIK",
   },
 ];
 

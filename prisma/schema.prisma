@@ -358,6 +358,8 @@ model Institution {
   materials           Material[]
   materialFiles       MaterialFile[]
   materialProgresses  MaterialProgress[]
+  assignments         Assignment[]
+  submissions         Submission[]
 
   @@index([slug])
   @@index([status])
@@ -779,7 +781,8 @@ model MaterialProgress {
 // 5. TUGAS & PENGUMPULAN
 // ----------------------------------------------------
 model Assignment {
-  id                  String    @id @default(uuid())
+  id                  String        @id @default(uuid())
+  institutionId       String
   classCourseId       String
   topicId             String?
   title               String
@@ -787,21 +790,25 @@ model Assignment {
   attachmentUrl       String?
   attachmentName      String?
   dueDate             DateTime
-  maxScore            Float     @default(100)
-  allowLateSubmission Boolean   @default(false)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  maxScore            Float         @default(100)
+  status              PublishStatus @default(PUBLISHED)
+  allowLateSubmission Boolean       @default(false)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
   deletedAt           DateTime?
 
+  institution Institution  @relation(fields: [institutionId], references: [id], onDelete: Cascade)
   classCourse ClassCourse  @relation(fields: [classCourseId], references: [id], onDelete: Cascade)
   topic       Topic?       @relation(fields: [topicId], references: [id])
   submissions Submission[]
 
+  @@index([institutionId, classCourseId])
   @@index([classCourseId, dueDate])
 }
 
 model Submission {
   id             String           @id @default(uuid())
+  institutionId  String
   assignmentId   String
   studentUserId  String
   textContent    String?
@@ -817,10 +824,13 @@ model Submission {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
-  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  student    User       @relation(fields: [studentUserId], references: [id])
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  assignment  Assignment  @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student     User        @relation(fields: [studentUserId], references: [id])
 
   @@unique([assignmentId, studentUserId])
+  @@index([institutionId, studentUserId])
+  @@index([institutionId, assignmentId])
 }
 
 // ----------------------------------------------------

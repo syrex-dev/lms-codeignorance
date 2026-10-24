@@ -99,6 +99,16 @@ export function Header({
           isCurrent: true,
         });
       }
+    } else if (section === "schedule") {
+      crumbs.push({
+        label: institutionType === "UNIVERSITY" ? "Jadwal Perkuliahan" : "Jadwal Pelajaran",
+        isCurrent: true,
+      });
+    } else if (section === "assignments") {
+      crumbs.push({
+        label: "Tugas & Penilaian",
+        isCurrent: true,
+      });
     } else if (section === "profile") {
       crumbs.push({
         label: "Profil & Akun Saya",

@@ -1,7 +1,8 @@
+import { UserRole } from "@prisma/client";
+import { requireSession } from "@/lib/auth/guard";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/auth-options";
 import { prisma } from "@/lib/db/prisma";
+import { withTenantTransaction } from "@/lib/db/tenant-prisma";
 import { hashPassword } from "@/lib/security/password-policy";
 import crypto from "crypto";
 
@@ -10,21 +11,15 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const guard = await requireSession(req, {
+      requiredRoles: [UserRole.INSTITUTION_ADMIN, UserRole.SUPER_ADMIN],
+    });
+    if (!guard.success) {
+      return guard.response;
+    }
+    const { institutionId, user: adminUser } = guard;
     const resolvedParams = await params;
     const targetUserId = resolvedParams.id;
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Sesi tidak valid." }, { status: 401 });
-    }
-
-    const adminRole = (session.user as any).activeRole || (session.user as any).role;
-    if (adminRole !== "INSTITUTION_ADMIN" && adminRole !== "SUPER_ADMIN") {
-      return NextResponse.json(
-        { error: "Akses ditolak: Hanya Admin Institusi yang berhak mereset akses pengguna." },
-        { status: 403 }
-      );
-    }
 
     const body = await req.json();
     const { actionType, reason } = body;
@@ -44,15 +39,17 @@ export async function POST(
     }
 
     // Ambil target user dan pastikan berada pada tenant yang sama (tenant isolation)
-    const targetUser: any = await prisma.user.findFirst({
-      where: {
-        id: targetUserId,
-        institutionId: session.user.activeInstitutionId!,
-      },
-      include: {
-        identifiers: true,
-        institution: true,
-      },
+    const targetUser: any = await withTenantTransaction(institutionId, async (tenantDb) => {
+      return tenantDb.user.findFirst({
+        where: {
+          id: targetUserId,
+          institutionId,
+        },
+        include: {
+          identifiers: true,
+          institution: true,
+        },
+      });
     });
 
     if (!targetUser) {
@@ -63,14 +60,14 @@ export async function POST(
     }
 
     // Ambil identifier utama (NIM/NIS/NIP)
-    const primaryIdent = targetUser.identifiers.find(
+    const primaryIdent = targetUser.identifiers?.find(
       (i: any) => i.type === "INSTITUTION_ID" || i.type === "APPLICANT_NO"
-    ) || targetUser.identifiers[0];
+    ) || targetUser.identifiers?.[0];
 
     const userRawId = primaryIdent?.value || targetUser.id.substring(0, 8);
 
     // Tentukan password awal berdasarkan mode tenant
-    const mode = targetUser.institution.initialPasswordMode;
+    const mode = targetUser.institution?.initialPasswordMode;
     let initialPasswordPlain: string;
 
     if (mode === "RANDOM") {
@@ -98,39 +95,40 @@ export async function POST(
       updateData.phoneVerifiedAt = null;
     }
 
-    await prisma.user.update({
-      where: { id: targetUser.id },
-      data: updateData,
-    });
+    await withTenantTransaction(institutionId, async (tenantDb) => {
+      await tenantDb.user.update({
+        where: { id: targetUser.id },
+        data: updateData,
+      });
 
-    // Catat ke AuditLog dengan alasan wajib
-    await prisma.auditLog.create({
-      data: {
-        institutionId: targetUser.institutionId,
-        userId: session.user.id,
-        action: "ADMIN_RESET_USER_ACCESS",
-        entityType: "User",
-        entityId: targetUser.id,
-        oldValue: {
-          status: targetUser.status,
-          phoneE164: targetUser.phoneE164,
+      // Catat ke AuditLog dengan alasan wajib
+      await tenantDb.auditLog.create({
+        data: {
+          institutionId: targetUser.institutionId,
+          userId: adminUser.id,
+          action: "ADMIN_RESET_USER_ACCESS",
+          entityType: "User",
+          entityId: targetUser.id,
+          oldValue: {
+            status: targetUser.status,
+            phoneE164: targetUser.phoneE164,
+          },
+          newValue: {
+            actionType,
+            reason,
+            newStatus: "PENDING_ACTIVATION",
+            mustChangePassword: true,
+            phoneCleared: actionType === "PASSWORD_AND_PHONE",
+          },
         },
-        newValue: {
-          actionType,
-          reason,
-          newStatus: "PENDING_ACTIVATION",
-          mustChangePassword: true,
-          phoneCleared: actionType === "PASSWORD_AND_PHONE",
-          resetByAdminId: session.user.id,
-        },
-      },
+      });
     });
 
     return NextResponse.json({
       success: true,
-      message: `Akses pengguna berhasil direset. Status akun dikembalikan ke PENDING_ACTIVATION. Pengguna wajib melakukan aktivasi pertama ulang saat login.`,
+      message: `Akses akun berhasil direset. Status dikembalikan ke aktivasi awal (PENDING_ACTIVATION).`,
+      initialPassword: initialPasswordPlain,
       actionType,
-      initialPasswordPlain: mode === "RANDOM" ? initialPasswordPlain : undefined,
     });
   } catch (error: any) {
     console.error("Admin reset user access error:", error);

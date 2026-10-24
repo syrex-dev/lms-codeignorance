@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/auth-options";
+import { requireSession } from "@/lib/auth/guard";
 import { prisma } from "@/lib/db/prisma";
 import { withTenantTransaction } from "@/lib/db/tenant-prisma";
 import { consumeVerificationToken } from "@/modules/otp/otp-service";
@@ -10,10 +9,11 @@ import { UserStatus } from "@prisma/client";
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Sesi login tidak valid." }, { status: 401 });
+    const guard = await requireSession(req, { allowOnboarding: true });
+    if (!guard.success) {
+      return guard.response;
     }
+    const session = { user: guard.user };
 
     const body = await req.json();
     const { verificationToken, newPassword } = body;
@@ -118,6 +118,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       message: "Akun Anda berhasil diaktifkan. Mengalihkan ke dashboard...",
+      sessionVersion: user.sessionVersion + 1,
     });
   } catch (error: any) {
     console.error("Onboarding complete error:", error);

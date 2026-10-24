@@ -1,6 +1,5 @@
+import { requireSession } from "@/lib/auth/guard";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/auth-options";
 import { verifySignedFileToken } from "@/modules/classroom/file-security";
 import { recordMaterialView } from "@/modules/classroom/classroom-service";
 import { prisma } from "@/lib/db/prisma";
@@ -38,7 +37,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ fileId: 
     }
 
     // Jika pengunduh adalah siswa, catat lastViewedAt di MaterialProgress
-    const session = await getServerSession(authOptions);
+    const guard = await requireSession(req, { requiredFeature: "classroom" });
+    const session = guard.success ? { user: guard.user } : null;
     if (session?.user?.id) {
       await withTenantTransaction(payload.institutionId, async (tenantDb) => {
         await tenantDb.materialProgress.upsert({

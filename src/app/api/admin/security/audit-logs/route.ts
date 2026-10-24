@@ -1,21 +1,18 @@
+import { UserRole } from "@prisma/client";
+import { requireSession } from "@/lib/auth/guard";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/auth-options";
 import { prisma } from "@/lib/db/prisma";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Sesi tidak valid." }, { status: 401 });
+    const guard = await requireSession(req, {
+      requiredRoles: [UserRole.INSTITUTION_ADMIN, UserRole.SUPER_ADMIN],
+    });
+    if (!guard.success) {
+      return guard.response;
     }
-
-    const institutionId = session.user.activeInstitutionId;
-    if (!institutionId) {
-      return NextResponse.json({ error: "Institusi aktif tidak ditemukan." }, { status: 400 });
-    }
-
-    const logs = await prisma.auditLog.findMany({
+    const { institutionId } = guard;
+    const session = { user: guard.user };const logs = await prisma.auditLog.findMany({
       where: {
         institutionId,
         action: {

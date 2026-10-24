@@ -1,18 +1,19 @@
+import { UserRole } from "@prisma/client";
+import { requireSession } from "@/lib/auth/guard";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/auth-options";
 import { prisma } from "@/lib/db/prisma";
 import { CsvImportService } from "@/modules/users/csv-import";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Sesi tidak valid." }, { status: 401 });
+    const guard = await requireSession(req, {
+      requiredRoles: [UserRole.INSTITUTION_ADMIN, UserRole.SUPER_ADMIN],
+    });
+    if (!guard.success) {
+      return guard.response;
     }
-
-    const institutionId = session.user.activeInstitutionId;
-    let institutionType: "SCHOOL" | "UNIVERSITY" = "UNIVERSITY";
+    const { institutionId } = guard;
+    const session = { user: guard.user };let institutionType: "SCHOOL" | "UNIVERSITY" = "UNIVERSITY";
 
     if (institutionId) {
       const inst = await prisma.institution.findUnique({

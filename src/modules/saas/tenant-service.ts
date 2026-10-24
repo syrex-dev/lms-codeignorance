@@ -94,8 +94,7 @@ export async function createTenantTrial(params: CreateTenantTrialParams) {
     });
 
     // Set PostgreSQL session variable untuk penegakan RLS pada entitas bertenant
-    const safeTenantId = institution.id.replace(/'/g, "''");
-    await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant = '${safeTenantId}';`);
+    await tx.$executeRaw`SELECT set_config('app.current_tenant', ${institution.id}, true);`;
 
     // 2. Buat Subscription Trial
     if (starterPlan) {

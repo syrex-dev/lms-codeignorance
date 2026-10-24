@@ -1,3 +1,5 @@
+import { getToken } from "next-auth/jwt";
+import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth-options";
@@ -8,7 +10,20 @@ import { withTenantTransaction } from "@/lib/db/tenant-prisma";
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
+    let session = null;
+    try {
+      session = await getServerSession(authOptions);
+    } catch {}
+
+    if (!session?.user && req) {
+      try {
+        const reqToUse = (req as any).cookies ? req : new NextRequest(req.url, req);
+        const token = await getToken({ req: reqToUse as any, secret: process.env.NEXTAUTH_SECRET });
+        if (token && token.id) {
+          session = { user: token as any, expires: new Date(Date.now() + 86400000).toISOString() };
+        }
+      } catch {}
+    }
     const body = await req.json();
 
     const {

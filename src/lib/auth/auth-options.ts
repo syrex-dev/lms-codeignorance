@@ -282,6 +282,25 @@ export const authOptions: NextAuthOptions = {
         token.memberships = user.memberships;
       }
 
+      // Handle session updates (e.g., after onboarding activation or role switcher)
+      if (trigger === "update" && session) {
+        if (typeof session.mustChangePassword === "boolean") {
+          token.mustChangePassword = session.mustChangePassword;
+        }
+        if (session.status) {
+          token.status = session.status;
+        }
+        if (session.sessionVersion) {
+          token.sessionVersion = session.sessionVersion;
+        }
+        if (session.activeRole) {
+          token.activeRole = session.activeRole;
+        }
+        if (session.tenantSlug) {
+          token.tenantSlug = session.tenantSlug;
+        }
+      }
+
       // 2.a: Verifikasi sessionVersion & status ke database saat token dievaluasi ulang (setelah password change/reset)
       if (!user && token?.id) {
         try {
@@ -305,25 +324,6 @@ export const authOptions: NextAuthOptions = {
         } catch (err) {
           console.error("JWT sessionVersion check error:", err);
           return {} as any;
-        }
-      }
-
-      // Handle session updates (e.g., after onboarding activation or role switcher)
-      if (trigger === "update" && session) {
-        if (typeof session.mustChangePassword === "boolean") {
-          token.mustChangePassword = session.mustChangePassword;
-        }
-        if (session.status) {
-          token.status = session.status;
-        }
-        if (session.sessionVersion) {
-          token.sessionVersion = session.sessionVersion;
-        }
-        if (session.activeRole) {
-          token.activeRole = session.activeRole;
-        }
-        if (session.tenantSlug) {
-          token.tenantSlug = session.tenantSlug;
         }
       }
 

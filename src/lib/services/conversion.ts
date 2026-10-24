@@ -97,8 +97,7 @@ export async function convertApplicantToStudent({
   // 2. Jalankan konversi dalam satu transaksi database atomik dengan penegakan RLS
   const result = await prisma.$transaction(async (tx) => {
     // Set PostgreSQL session variable untuk penegakan RLS
-    const safeTenantId = institution.id.replace(/'/g, "''");
-    await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant = '${safeTenantId}';`);
+    await tx.$executeRaw`SELECT set_config('app.current_tenant', ${institution.id}, true);`;
 
     // A. Generate ID/NIM/NIS sesuai template institusi
     const currentStudentCount = await tx.studentProfile.count({

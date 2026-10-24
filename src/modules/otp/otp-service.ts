@@ -125,8 +125,7 @@ export async function createOtpChallenge(params: SendOtpParams): Promise<SendOtp
   // 7. Simpan tantangan OTP baru & catat pemakaian dalam transaksi dengan RLS context
   const { challenge, warning } = await prisma.$transaction(async (tx) => {
     if (params.institutionId) {
-      const safeId = params.institutionId.replace(/'/g, "''");
-      await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant = '${safeId}';`);
+      await tx.$executeRaw`SELECT set_config('app.current_tenant', ${params.institutionId}, true);`;
     }
 
     const createdChallenge = await tx.otpChallenge.create({

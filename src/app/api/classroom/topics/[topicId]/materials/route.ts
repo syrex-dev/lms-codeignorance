@@ -1,23 +1,22 @@
+import { requireSession } from "@/lib/auth/guard";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/auth-options";
 import { createMaterial } from "@/modules/classroom/classroom-service";
 import { MaterialType } from "@prisma/client";
 
 export async function POST(req: Request, { params }: { params: Promise<{ topicId: string }> }) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Sesi tidak valid." }, { status: 401 });
+    const guard = await requireSession(req, { requiredFeature: "classroom" });
+    if (!guard.success) {
+      return guard.response;
     }
+    const session = { user: guard.user };
+    const institutionId = guard.institutionId;
+    const role = guard.role;
 
     const { topicId } = await params;
-    const institutionId = session.user.activeInstitutionId || (session.user as any).tenantId;
-    if (!institutionId) {
-      return NextResponse.json({ error: "Tenant context required." }, { status: 400 });
-    }
+    
 
-    const role = (session.user as any).activeRole || (session.user as any).role;
+    
     const body = await req.json();
 
     if (!body.title || typeof body.title !== "string" || !body.title.trim()) {

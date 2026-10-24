@@ -1,20 +1,16 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/auth-options";
+import { requireSession } from "@/lib/auth/guard";
 import { prisma } from "@/lib/db/prisma";
+import { UserRole } from "@prisma/client";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Sesi tidak valid." }, { status: 401 });
+    const guard = await requireSession(req);
+    if (!guard.success) {
+      return guard.response;
     }
 
-    const institutionId = session.user.activeInstitutionId;
-    if (!institutionId) {
-      return NextResponse.json({ error: "Institusi aktif tidak ditemukan." }, { status: 400 });
-    }
-
+    const { institutionId } = guard;
     const terms = await prisma.academicTerm.findMany({
       where: { institutionId, deletedAt: null },
       orderBy: { startDate: "desc" },
@@ -33,24 +29,14 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Sesi tidak valid." }, { status: 401 });
+    const guard = await requireSession(req, {
+      requiredRoles: [UserRole.INSTITUTION_ADMIN, UserRole.SUPER_ADMIN],
+    });
+    if (!guard.success) {
+      return guard.response;
     }
 
-    const role = (session.user as any).activeRole || (session.user as any).role;
-    if (role !== "INSTITUTION_ADMIN" && role !== "SUPER_ADMIN") {
-      return NextResponse.json(
-        { error: "Akses ditolak: Hanya Admin Institusi yang dapat menambah tahun akademik." },
-        { status: 403 }
-      );
-    }
-
-    const institutionId = session.user.activeInstitutionId;
-    if (!institutionId) {
-      return NextResponse.json({ error: "Institusi aktif tidak ditemukan." }, { status: 400 });
-    }
-
+    const { institutionId } = guard;
     const body = await req.json();
     const { name, code, type, startDate, endDate, isActive } = body;
 

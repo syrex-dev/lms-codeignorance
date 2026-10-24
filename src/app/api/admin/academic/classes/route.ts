@@ -1,21 +1,18 @@
+import { UserRole } from "@prisma/client";
+import { requireSession } from "@/lib/auth/guard";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/auth-options";
 import { prisma } from "@/lib/db/prisma";
 
 export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Sesi tidak valid." }, { status: 401 });
+    const guard = await requireSession(req, {
+      requiredRoles: [UserRole.INSTITUTION_ADMIN, UserRole.SUPER_ADMIN],
+    });
+    if (!guard.success) {
+      return guard.response;
     }
-
-    const institutionId = session.user.activeInstitutionId;
-    if (!institutionId) {
-      return NextResponse.json({ error: "Institusi aktif tidak ditemukan." }, { status: 400 });
-    }
-
-    const { searchParams } = new URL(req.url);
+    const { institutionId } = guard;
+    const session = { user: guard.user };const { searchParams } = new URL(req.url);
     const academicTermId = searchParams.get("academicTermId") || undefined;
     const programDepartmentId = searchParams.get("programDepartmentId") || undefined;
 
@@ -61,12 +58,14 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Sesi tidak valid." }, { status: 401 });
+    const guard = await requireSession(req, {
+      requiredRoles: [UserRole.INSTITUTION_ADMIN, UserRole.SUPER_ADMIN],
+    });
+    if (!guard.success) {
+      return guard.response;
     }
-
-    const role = (session.user as any).activeRole || (session.user as any).role;
+    const { institutionId } = guard;
+    const session = { user: guard.user };const role = (session.user as any).activeRole || (session.user as any).role;
     if (role !== "INSTITUTION_ADMIN" && role !== "SUPER_ADMIN") {
       return NextResponse.json(
         { error: "Akses ditolak: Hanya Admin Institusi yang dapat membuat kelas/mata kuliah." },
@@ -74,8 +73,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const institutionId = session.user.activeInstitutionId;
-    if (!institutionId) {
+        if (!institutionId) {
       return NextResponse.json({ error: "Institusi aktif tidak ditemukan." }, { status: 400 });
     }
 

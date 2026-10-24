@@ -1,20 +1,16 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/auth-options";
+import { requireSession } from "@/lib/auth/guard";
 import { prisma } from "@/lib/db/prisma";
 import bcrypt from "bcryptjs";
 import { normalizePhoneE164, isValidIndonesianPhone } from "@/lib/security/phone";
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Sesi tidak valid. Silakan login kembali." },
-        { status: 401 }
-      );
+    const guard = await requireSession(req);
+    if (!guard.success) {
+      return guard.response;
     }
+    const session = { user: guard.user };
 
     const body = await req.json();
     const { password, newPhoneNumber, oldPhoneVerificationToken, newPhoneVerificationToken } = body;

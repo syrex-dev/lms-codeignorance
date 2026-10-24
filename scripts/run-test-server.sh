@@ -5,8 +5,10 @@ export NVM_DIR="$HOME/.nvm"
 
 export PATH="/home/syrex/.nvm/versions/node/v24.22.0/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
+cd /home/syrex/projects/lms
+
 if [ -f .env.test ]; then
   export $(grep -v '^#' .env.test | grep -v '^$' | xargs)
 fi
 
-exec node ./node_modules/.bin/next dev -p 3000
+exec npx next dev -p 3000

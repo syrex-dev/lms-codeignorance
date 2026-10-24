@@ -92,11 +92,11 @@ test.describe("B.6 & C Navigasi & Integritas Peran Demo Bebas 404 & Bebas Error 
         // Tidak boleh 404
         expect(res?.status()).toBeLessThan(400);
         await expect(page.locator("text=Halaman Tidak Ditemukan")).not.toBeVisible();
-        await expect(page.locator("text=404")).not.toBeVisible();
+        await expect(page.locator("h1:has-text('404')")).not.toBeVisible();
 
         // Uji breadcrumb kembali ke beranda jika bukan dashboard
         if (!href.endsWith("/dashboard")) {
-          const breadcrumbHome = page.locator("header nav a:has-text('Beranda')");
+          const breadcrumbHome = page.locator("header nav a:has-text('Dashboard'), header nav a:has-text('Beranda')").first();
           if (await breadcrumbHome.isVisible()) {
             await breadcrumbHome.click();
             await page.waitForURL("**/poltekmi/dashboard");

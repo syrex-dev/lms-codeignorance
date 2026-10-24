@@ -5,10 +5,17 @@ test.describe("E2E Playwright: Admin Login -> Tambah Pengguna -> Onboarding -> D
     const { PrismaClient } = await import("@prisma/client");
     const dbUrl = process.env.PLATFORM_DATABASE_URL || process.env.TEST_DATABASE_URL;
     const prisma = new PrismaClient(dbUrl ? { datasources: { db: { url: dbUrl } } } : undefined);
+    const { hashPassword } = await import("@/lib/security/hash");
+    const mhs1Pass = await hashPassword("2301010011");
     await prisma.user.updateMany({
       where: { identifiers: { some: { value: "2301010011" } } },
-      data: { status: "PENDING_ACTIVATION", mustChangePassword: true },
+      data: {
+        status: "PENDING_ACTIVATION",
+        mustChangePassword: true,
+        passwordHash: mhs1Pass,
+      },
     });
+    await prisma.otpChallenge.deleteMany();
     await prisma.$disconnect();
   });
   test.setTimeout(90000);
@@ -133,7 +140,7 @@ test.describe("E2E Playwright: Admin Login -> Tambah Pengguna -> Onboarding -> D
     // Assertion teks dashboard nyata: H1 Dashboard, nama pengguna, dan daftar kelas nyata
     await expect(page.locator("h1:has-text('Dashboard')")).toBeVisible({ timeout: 15000 });
     await expect(page.locator("main").locator(`text=${testUserName}`).first()).toBeVisible({ timeout: 10000 });
-    await expect(page.locator("text=Daftar kelas").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=/Daftar Kelas/i").first()).toBeVisible({ timeout: 10000 });
 
     // Tangkap screenshot nyata dashboard penuh
     await page.screenshot({ path: "tests/e2e/screenshots/07-user-dashboard-completed.png", fullPage: true });

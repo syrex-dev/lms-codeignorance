@@ -94,7 +94,13 @@ test.describe("E2E Playwright Fase 3: Ruang Kelas, Kurikulum, Materi, & Progres 
     await page.click('button[type="submit"]');
 
     await page.waitForURL("**/poltekmi/dashboard", { timeout: 15000 });
+    await page.waitForLoadState("networkidle");
     console.log("Siswa berhasil login!");
+
+    // Assertion Bug 1: Dashboard Mahasiswa yang sudah punya kelas TIDAK menampilkan angka 0 atau empty state
+    await expect(page.locator("text=Belum ada kelas terdaftar")).not.toBeVisible();
+    await expect(page.locator("text=Lanjutkan Belajar")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=Pemrograman Web Modern").first()).toBeVisible({ timeout: 10000 });
 
     // Buka Ruang Kelas
     await page.goto("/poltekmi/classes");
@@ -115,7 +121,11 @@ test.describe("E2E Playwright Fase 3: Ruang Kelas, Kurikulum, Materi, & Progres 
     // 4. SISWA MENANDAI SELESAI & PROGRES NAIK
     // ------------------------------------------------------------------------
     console.log("7. Siswa menandai materi selesai...");
-    // Klik tombol Tandai Selesai pertama yang tersedia
+    // Klik materi baru yang belum selesai agar terbuka di panel viewer
+    await page.locator(`text=${newMaterialTitle}`).first().click();
+    await page.waitForTimeout(400);
+
+    // Klik tombol Tandai Selesai
     const markDoneBtn = page.locator('button:has-text("Tandai Selesai")').first();
     await markDoneBtn.click();
 

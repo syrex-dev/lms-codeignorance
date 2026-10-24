@@ -14,7 +14,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="w-full">
         {label && (
-          <label htmlFor={selectId} className="block text-xs font-medium text-[#111827] mb-1">
+          <label htmlFor={selectId} className="block text-xs font-medium text-[var(--text-main)] mb-1">
             {label}
           </label>
         )}
@@ -22,20 +22,20 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           <select
             id={selectId}
             ref={ref}
-            className={`w-full h-9 pl-3 pr-8 text-sm bg-white text-[#111827] border rounded-[6px] appearance-none transition-colors focus:outline-none focus:ring-2 focus:ring-[#1F4E8C] focus:ring-offset-1 disabled:opacity-50 disabled:bg-[#F6F7F9] ${
-              error ? "border-[#B91C1C] focus:ring-[#B91C1C]" : "border-[#E3E6EB] hover:border-[#CBD5E1]"
+            className={`w-full h-9 pl-3 pr-8 text-sm bg-[var(--bg-surface)] text-[var(--text-main)] border rounded-[6px] appearance-none transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--tenant-accent,#1E40AF)] focus:ring-offset-1 disabled:opacity-50 disabled:bg-[var(--bg-canvas)] ${
+              error ? "border-[var(--status-danger)] focus:ring-[var(--status-danger)]" : "border-[var(--border-subtle)] hover:border-[var(--border-strong)]"
             } ${className}`}
             {...props}
           >
             {children}
           </select>
           <ChevronDown
-            className="w-4 h-4 text-[#6B7280] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+            className="w-4 h-4 text-[var(--text-subtle)] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
             strokeWidth={1.5}
           />
         </div>
-        {error && <p className="text-xs text-[#B91C1C] mt-1">{error}</p>}
-        {!error && helperText && <p className="text-xs text-[#4B5563] mt-1">{helperText}</p>}
+        {error && <p className="text-xs text-[var(--status-danger)] mt-1">{error}</p>}
+        {!error && helperText && <p className="text-xs text-[var(--text-muted)] mt-1">{helperText}</p>}
       </div>
     );
   }

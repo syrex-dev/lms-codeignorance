@@ -26,7 +26,7 @@ export function Tabs({ value, onValueChange, className = "", children }: TabsPro
 
 export function TabsList({ className = "", children }: { className?: string; children: React.ReactNode }) {
   return (
-    <div className={`flex border-b border-[#E3E6EB] gap-6 text-sm font-medium ${className}`}>
+    <div className={`flex border-b border-[var(--border-subtle)] gap-6 text-sm font-medium ${className}`}>
       {children}
     </div>
   );
@@ -52,8 +52,8 @@ export function TabsTrigger({
       onClick={() => context.setActiveTab(value)}
       className={`pb-2.5 -mb-px flex items-center gap-2 text-sm transition-colors border-b-2 font-medium ${
         isActive
-          ? "border-[#1F4E8C] text-[#1F4E8C] font-semibold"
-          : "border-transparent text-[#4B5563] hover:text-[#111827] hover:border-[#CBD5E1]"
+          ? "border-[var(--tenant-accent,#1E40AF)] text-[var(--tenant-accent,#1E40AF)] font-semibold"
+          : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)] hover:border-[var(--border-strong)]"
       } ${className}`}
     >
       {children}

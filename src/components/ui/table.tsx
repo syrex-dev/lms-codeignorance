@@ -1,51 +1,39 @@
 import React from "react";
 
-export function Table({ className = "", children, ...props }: React.TableHTMLAttributes<HTMLTableElement>) {
+export function Table({ className = "", ...props }: React.HTMLAttributes<HTMLTableElement>) {
   return (
-    <div className="w-full overflow-x-auto border border-[#E3E6EB] rounded-[6px] bg-white">
-      <table className={`w-full text-left border-collapse text-sm ${className}`} {...props}>
-        {children}
-      </table>
+    <div className="w-full overflow-x-auto border border-[var(--border-subtle)] rounded-[6px] bg-[var(--bg-surface)]">
+      <table className={`w-full text-left border-collapse text-sm ${className}`} {...props} />
     </div>
   );
 }
 
-export function TableHeader({ className = "", children, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
+export function TableHeader({ className = "", ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
-    <thead className={`bg-[#F6F7F9] border-b border-[#E3E6EB] text-xs font-semibold text-[#4B5563] ${className}`} {...props}>
-      {children}
-    </thead>
+    <thead className={`bg-[var(--bg-subtle)] border-b border-[var(--border-subtle)] text-xs font-semibold text-[var(--text-muted)] ${className}`} {...props} />
   );
 }
 
-export function TableBody({ className = "", children, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
+export function TableBody({ className = "", ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
-    <tbody className={`divide-y divide-[#E3E6EB] text-[#111827] ${className}`} {...props}>
-      {children}
-    </tbody>
+    <tbody className={`divide-y divide-[var(--border-subtle)] text-[var(--text-main)] ${className}`} {...props} />
   );
 }
 
-export function TableRow({ className = "", children, ...props }: React.HTMLAttributes<HTMLTableRowElement>) {
+export function TableRow({ className = "", ...props }: React.HTMLAttributes<HTMLTableRowElement>) {
   return (
-    <tr className={`h-[44px] hover:bg-[#F9FAFB] transition-colors ${className}`} {...props}>
-      {children}
-    </tr>
+    <tr className={`h-[44px] hover:bg-[var(--bg-canvas)] transition-colors ${className}`} {...props} />
   );
 }
 
-export function TableHead({ className = "", children, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) {
+export function TableHead({ className = "", ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) {
   return (
-    <th className={`h-[44px] px-3.5 text-xs font-semibold text-[#4B5563] align-middle ${className}`} {...props}>
-      {children}
-    </th>
+    <th className={`h-[44px] px-3.5 text-xs font-semibold text-[var(--text-muted)] align-middle ${className}`} {...props} />
   );
 }
 
-export function TableCell({ className = "", children, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
+export function TableCell({ className = "", ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
   return (
-    <td className={`h-[44px] px-3.5 text-sm text-[#111827] align-middle ${className}`} {...props}>
-      {children}
-    </td>
+    <td className={`h-[44px] px-3.5 text-sm text-[var(--text-main)] align-middle ${className}`} {...props} />
   );
 }

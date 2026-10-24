@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
@@ -17,12 +17,17 @@ import {
   PanelLeft,
   X,
   School,
+  Calendar,
+  Clock,
+  CheckSquare,
 } from "lucide-react";
 
 interface DashboardShellProps {
   tenantSlug: string;
   institutionName: string;
   institutionType?: string;
+  themeColor?: string | null;
+  logoUrl?: string | null;
   user: {
     name?: string | null;
     fullName?: string | null;
@@ -37,6 +42,8 @@ export function DashboardShell({
   tenantSlug,
   institutionName,
   institutionType = "UNIVERSITY",
+  themeColor,
+  logoUrl,
   user,
   academicTermName,
   children,
@@ -50,24 +57,18 @@ export function DashboardShell({
   useEffect(() => {
     setMounted(true);
     const saved = localStorage.getItem("lms_sidebar_collapsed");
-    if (saved === "true") {
-      setCollapsed(true);
+    if (saved !== null) {
+      setCollapsed(saved === "true");
     }
   }, []);
 
   const toggleCollapsed = () => {
-    const next = !collapsed;
-    setCollapsed(next);
-    localStorage.setItem("lms_sidebar_collapsed", String(next));
+    const nextState = !collapsed;
+    setCollapsed(nextState);
+    localStorage.setItem("lms_sidebar_collapsed", String(nextState));
   };
 
-  // Close mobile drawer on route change
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
-
-  const items = getActiveNavigationItems(user.activeRole || undefined);
-  const isSchool = institutionType === "SCHOOL";
+  const navItems = getActiveNavigationItems(user.activeRole || "STUDENT");
 
   const iconMap: Record<string, React.ReactNode> = {
     LayoutDashboard: <LayoutDashboard className="w-4 h-4 shrink-0" strokeWidth={1.75} />,
@@ -76,108 +77,122 @@ export function DashboardShell({
     GraduationCap: <GraduationCap className="w-4 h-4 shrink-0" strokeWidth={1.75} />,
     Settings: <Settings className="w-4 h-4 shrink-0" strokeWidth={1.75} />,
     User: <User className="w-4 h-4 shrink-0" strokeWidth={1.75} />,
+    Clock: <Clock className="w-4 h-4 shrink-0" strokeWidth={1.75} />,
+    CheckSquare: <CheckSquare className="w-4 h-4 shrink-0" strokeWidth={1.75} />,
   };
 
   const getLabel = (item: NavigationItem) => {
     if (item.key === "classes") {
-      if (user.activeRole === "TEACHER") {
-        return isSchool ? "Kelas Ampu" : "Kelas Ampu";
-      }
-      return isSchool ? "Kelas Pelajaran" : "Kelas Perkuliahan";
+      return institutionType === "UNIVERSITY" ? "Kelas Perkuliahan" : "Mata Pelajaran";
     }
     return item.labelKey;
   };
 
-  // Group items by section
-  const sections: { title: string; items: NavigationItem[] }[] = [
+  const sections = [
     {
       title: "Akademik",
-      items: items.filter((i) => i.section === "AKADEMIK" || !i.section),
+      items: navItems.filter((i) => i.section === "AKADEMIK" || !i.section),
     },
     {
-      title: "Administrasi",
-      items: items.filter((i) => i.section === "ADMIN"),
+      title: "Administrasi Institusi",
+      items: navItems.filter((i) => i.section === "ADMIN"),
     },
     {
       title: "Pengaturan",
-      items: items.filter((i) => i.section === "PENGATURAN"),
+      items: navItems.filter((i) => i.section === "PENGATURAN"),
     },
-  ].filter((s) => s.items.length > 0);
+  ].filter((sec) => sec.items.length > 0);
 
-  // Bottom navigation items (max 4)
-  const bottomItems = [
-    items.find((i) => i.key === "dashboard"),
-    items.find((i) => i.key === "classes"),
-    items.find((i) => i.key === "admin_users" || i.key === "admin_academic"),
-    items.find((i) => i.key === "profile"),
-  ].filter(Boolean) as NavigationItem[];
+  const bottomItems = navItems.slice(0, 4);
+
+  const accentColor = themeColor || "#1E40AF";
+  const monogram = institutionName ? institutionName.substring(0, 2).toUpperCase() : "LM";
+
+  const rootStyles = {
+    "--tenant-accent": accentColor,
+    "--tenant-accent-hover": accentColor,
+    "--tenant-accent-subtle": `${accentColor}18`,
+  } as React.CSSProperties;
 
   return (
     <Tooltip.Provider delayDuration={150}>
-      <div className="min-h-screen flex bg-[#F8FAFC]">
-        {/* Skip to Content Accessible Link */}
+      <div style={rootStyles} className="min-h-screen flex bg-[var(--bg-canvas)]">
+        {/* Skip to Main Content Link for A11y */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2 focus:bg-[#1E40AF] focus:text-white focus:rounded-[6px] focus:shadow-md focus:text-xs focus:font-semibold"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2 focus:bg-[var(--tenant-accent,#1E40AF)] focus:text-white focus:rounded-[6px] focus:shadow-md focus:text-xs focus:font-semibold"
         >
           Lewati ke konten utama
         </a>
 
-        {/* Desktop Collapsible Sidebar */}
+        {/* Desktop Collapsible Sidebar (240px <-> 64px) */}
         <aside
-          className={`hidden md:flex flex-col bg-white border-r border-[#E2E8F0] shrink-0 sticky top-0 h-screen transition-[width] duration-200 ease-out z-20 ${
+          aria-label="Navigasi sidebar utama"
+          className={`hidden md:flex flex-col bg-[var(--bg-surface)] border-r border-[var(--border-subtle)] shrink-0 sticky top-0 h-screen transition-[width] duration-200 ease-out z-20 ${
             collapsed ? "w-16" : "w-60"
           }`}
         >
-          {/* Header Brand */}
-          <div className="h-14 px-3.5 border-b border-[#E2E8F0] flex items-center justify-between">
+          {/* Sidebar Header 56px */}
+          <div className="h-14 px-3.5 border-b border-[var(--border-subtle)] flex items-center justify-between">
             {!collapsed ? (
-              <Link
-                href={`/${tenantSlug}/dashboard`}
-                className="flex items-center gap-2.5 min-w-0"
-                title={institutionName}
-              >
-                <div className="w-8 h-8 rounded-[8px] bg-[#1E40AF] text-white flex items-center justify-center shrink-0 shadow-xs">
-                  {isSchool ? (
-                    <School className="w-4 h-4" strokeWidth={1.75} />
-                  ) : (
-                    <GraduationCap className="w-4 h-4" strokeWidth={1.75} />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <span className="block text-xs font-semibold text-[#0F172A] truncate leading-tight">
+              <div className="flex items-center gap-2.5 min-w-0">
+                {logoUrl ? (
+                  <img
+                    src={logoUrl}
+                    alt={institutionName}
+                    className="w-8 h-8 rounded-[8px] object-cover shrink-0 shadow-xs border border-[var(--border-subtle)]"
+                  />
+                ) : (
+                  <div
+                    className="w-8 h-8 rounded-[8px] text-white flex items-center justify-center shrink-0 shadow-xs font-bold text-xs tracking-wider"
+                    style={{ backgroundColor: "var(--tenant-accent, #1E40AF)" }}
+                  >
+                    {monogram}
+                  </div>
+                )}
+                <div className="min-w-0 leading-tight">
+                  <span className="block text-xs font-semibold text-[var(--text-main)] truncate leading-tight">
                     {institutionName}
                   </span>
-                  <span className="block text-[11px] text-[#64748B] leading-tight">
-                    {isSchool ? "Portal Sekolah" : "Portal Akademik"}
+                  <span className="block text-[11px] text-[var(--text-subtle)] leading-tight">
+                    {institutionType === "UNIVERSITY" ? "Portal Perkuliahan" : "Portal Sekolah"}
                   </span>
                 </div>
-              </Link>
+              </div>
             ) : (
               <div className="w-full flex justify-center">
-                <div className="w-8 h-8 rounded-[8px] bg-[#1E40AF] text-white flex items-center justify-center shadow-xs">
-                  {isSchool ? (
-                    <School className="w-4 h-4" strokeWidth={1.75} />
-                  ) : (
-                    <GraduationCap className="w-4 h-4" strokeWidth={1.75} />
-                  )}
-                </div>
+                {logoUrl ? (
+                  <img
+                    src={logoUrl}
+                    alt={institutionName}
+                    className="w-8 h-8 rounded-[8px] object-cover shadow-xs border border-[var(--border-subtle)]"
+                  />
+                ) : (
+                  <div
+                    className="w-8 h-8 rounded-[8px] text-white flex items-center justify-center shadow-xs font-bold text-xs"
+                    style={{ backgroundColor: "var(--tenant-accent, #1E40AF)" }}
+                  >
+                    {monogram}
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Navigation Links Grouped by Section */}
-          <nav className="flex-1 py-4 px-2 space-y-4 overflow-y-auto" aria-label="Menu navigasi utama">
+          {/* Navigation Menu List */}
+          <nav className="flex-1 py-3 px-2 space-y-4 overflow-y-auto" aria-label="Menu navigasi">
             {sections.map((sec, secIdx) => (
               <div key={sec.title}>
-                {!collapsed && (
-                  <div className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
+                {!collapsed ? (
+                  <div className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-disabled)]">
                     {sec.title}
                   </div>
+                ) : (
+                  secIdx > 0 && (
+                    <div className="my-2 border-t border-[var(--border-subtle)]" />
+                  )
                 )}
-                {collapsed && secIdx > 0 && (
-                  <div className="my-2 border-t border-[#F1F5F9]" />
-                )}
+
                 <div className="space-y-1">
                   {sec.items.map((item) => {
                     const href = item.href(tenantSlug);
@@ -193,14 +208,17 @@ export function DashboardShell({
                             : "px-3 py-2 gap-2.5"
                         } ${
                           isActive
-                            ? "bg-[#EFF6FF] text-[#1E40AF]"
-                            : "text-[#475569] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
+                            ? "bg-[var(--tenant-accent-subtle,#EFF6FF)] text-[var(--tenant-accent,#1E40AF)]"
+                            : "text-[var(--text-muted)] hover:bg-[var(--bg-canvas)] hover:text-[var(--text-main)]"
                         }`}
                       >
                         {isActive && (
-                          <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] bg-[#1E40AF] rounded-r" />
+                          <span
+                            className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r"
+                            style={{ backgroundColor: "var(--tenant-accent, #1E40AF)" }}
+                          />
                         )}
-                        <span className={isActive ? "text-[#1E40AF]" : "text-[#64748B] group-hover:text-[#0F172A]"}>
+                        <span className={isActive ? "text-[var(--tenant-accent,#1E40AF)]" : "text-[var(--text-subtle)] group-hover:text-[var(--text-main)]"}>
                           {iconMap[item.iconName] || <BookOpen className="w-4 h-4 shrink-0" strokeWidth={1.75} />}
                         </span>
                         {!collapsed && <span className="truncate">{label}</span>}
@@ -233,12 +251,12 @@ export function DashboardShell({
           </nav>
 
           {/* Sidebar Collapse Toggle Footer */}
-          <div className="p-2 border-t border-[#E2E8F0] flex justify-center">
+          <div className="p-2 border-t border-[var(--border-subtle)] flex justify-center">
             <button
               type="button"
               onClick={toggleCollapsed}
               aria-label={collapsed ? "Bentangkan menu navigasi" : undefined}
-              className="w-full h-9 flex items-center justify-center gap-2 rounded-[6px] text-xs font-medium text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC] transition"
+              className="w-full h-9 flex items-center justify-center gap-2 rounded-[6px] text-xs font-medium text-[var(--text-subtle)] hover:text-[var(--text-main)] hover:bg-[var(--bg-canvas)] transition"
             >
               {collapsed ? (
                 <PanelLeft className="w-4 h-4" strokeWidth={1.75} />
@@ -261,13 +279,20 @@ export function DashboardShell({
               onClick={() => setMobileOpen(false)}
             />
             {/* Drawer Panel */}
-            <div className="relative w-72 max-w-[80vw] bg-white h-full shadow-xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
-              <div className="h-14 px-4 border-b border-[#E2E8F0] flex items-center justify-between">
+            <div className="relative w-72 max-w-[80vw] bg-[var(--bg-surface)] h-full shadow-xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
+              <div className="h-14 px-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-7 h-7 rounded-[6px] bg-[#1E40AF] text-white flex items-center justify-center shrink-0">
-                    <GraduationCap className="w-4 h-4" strokeWidth={1.75} />
-                  </div>
-                  <span className="text-xs font-semibold text-[#0F172A] truncate">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt={institutionName} className="w-7 h-7 rounded-[6px] object-cover shrink-0" />
+                  ) : (
+                    <div
+                      className="w-7 h-7 rounded-[6px] text-white flex items-center justify-center shrink-0 font-bold text-xs"
+                      style={{ backgroundColor: "var(--tenant-accent, #1E40AF)" }}
+                    >
+                      {monogram}
+                    </div>
+                  )}
+                  <span className="text-xs font-semibold text-[var(--text-main)] truncate">
                     {institutionName}
                   </span>
                 </div>
@@ -275,7 +300,7 @@ export function DashboardShell({
                   type="button"
                   onClick={() => setMobileOpen(false)}
                   aria-label="Tutup menu"
-                  className="p-1.5 text-[#64748B] hover:text-[#0F172A] rounded"
+                  className="p-1.5 text-[var(--text-subtle)] hover:text-[var(--text-main)] rounded"
                 >
                   <X className="w-4 h-4" strokeWidth={1.75} />
                 </button>
@@ -284,7 +309,7 @@ export function DashboardShell({
               <nav className="flex-1 py-4 px-3 space-y-4 overflow-y-auto" aria-label="Menu navigasi mobile">
                 {sections.map((sec) => (
                   <div key={sec.title}>
-                    <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
+                    <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-disabled)]">
                       {sec.title}
                     </div>
                     <div className="space-y-1">
@@ -300,11 +325,12 @@ export function DashboardShell({
                             onClick={() => setMobileOpen(false)}
                             className={`flex items-center gap-2.5 px-3 py-2 rounded-[6px] text-xs font-medium transition ${
                               isActive
-                                ? "bg-[#EFF6FF] text-[#1E40AF] border-l-2 border-[#1E40AF]"
-                                : "text-[#475569] hover:bg-[#F8FAFC]"
+                                ? "bg-[var(--tenant-accent-subtle,#EFF6FF)] text-[var(--tenant-accent,#1E40AF)] border-l-2"
+                                : "text-[var(--text-muted)] hover:bg-[var(--bg-canvas)]"
                             }`}
+                            style={isActive ? { borderLeftColor: "var(--tenant-accent, #1E40AF)" } : undefined}
                           >
-                            <span className={isActive ? "text-[#1E40AF]" : "text-[#64748B]"}>
+                            <span className={isActive ? "text-[var(--tenant-accent,#1E40AF)]" : "text-[var(--text-subtle)]"}>
                               {iconMap[item.iconName] || <BookOpen className="w-4 h-4 shrink-0" strokeWidth={1.75} />}
                             </span>
                             <span className="truncate">{label}</span>
@@ -338,7 +364,7 @@ export function DashboardShell({
         {/* Mobile Ergonomic Bottom Navigation Bar (< 768px) */}
         <nav
           aria-label="Navigasi bawah mobile"
-          className="md:hidden fixed bottom-0 left-0 right-0 h-14 bg-white border-t border-[#E2E8F0] px-2 flex items-center justify-around z-30 shadow-[0_-1px_3px_rgba(15,23,42,0.04)]"
+          className="md:hidden fixed bottom-0 left-0 right-0 h-14 bg-[var(--bg-surface)] border-t border-[var(--border-subtle)] px-2 flex items-center justify-around z-30 shadow-[0_-1px_3px_rgba(15,23,42,0.04)]"
         >
           {bottomItems.map((item) => {
             const href = item.href(tenantSlug);
@@ -350,7 +376,7 @@ export function DashboardShell({
                 key={item.key}
                 href={href}
                 className={`flex flex-col items-center justify-center flex-1 py-1 gap-0.5 text-[10px] font-medium transition ${
-                  isActive ? "text-[#1E40AF]" : "text-[#64748B] hover:text-[#0F172A]"
+                  isActive ? "text-[var(--tenant-accent,#1E40AF)] font-semibold" : "text-[var(--text-subtle)] hover:text-[var(--text-main)]"
                 }`}
               >
                 <span>{iconMap[item.iconName]}</span>

@@ -25,8 +25,13 @@ export default async function LoginPage({ params }: LoginPageProps) {
   const isUniversity = institution.type === "UNIVERSITY";
   const primaryColor = institution.themeColor || "#1E40AF";
 
+  const rootStyles = {
+    "--tenant-accent": primaryColor,
+    "--tenant-accent-subtle": `${primaryColor}18`,
+  } as React.CSSProperties;
+
   return (
-    <div className="min-h-screen bg-[#F8FAFC] grid grid-cols-1 lg:grid-cols-12">
+    <div style={rootStyles} className="min-h-screen bg-[var(--bg-canvas)] grid grid-cols-1 lg:grid-cols-12">
       {/* Kolom Kiri: Panel Identitas Institusi (Desktop Split-Screen) */}
       <div className="lg:col-span-5 bg-gradient-to-br from-[#0F172A] via-[#1E3A8A] to-[#172554] text-white p-8 sm:p-12 flex flex-col justify-between relative overflow-hidden">
         {/* Subtle decorative background blur circles */}
@@ -36,16 +41,24 @@ export default async function LoginPage({ params }: LoginPageProps) {
         {/* Header Identitas Institusi */}
         <div className="relative z-10">
           <div className="flex items-center gap-3">
-            <div
-              className="w-12 h-12 rounded-[8px] flex items-center justify-center font-bold text-lg text-white shadow-md border border-white/20 shrink-0"
-              style={{ backgroundColor: primaryColor }}
-            >
-              {isUniversity ? (
-                <GraduationCap className="w-6 h-6" strokeWidth={2} />
-              ) : (
-                <School className="w-6 h-6" strokeWidth={2} />
-              )}
-            </div>
+            {institution.logoUrl ? (
+              <img
+                src={institution.logoUrl}
+                alt={institution.name}
+                className="w-12 h-12 rounded-[8px] object-cover bg-white p-1 shadow-md border border-white/20 shrink-0"
+              />
+            ) : (
+              <div
+                className="w-12 h-12 rounded-[8px] flex items-center justify-center font-bold text-lg text-white shadow-md border border-white/20 shrink-0"
+                style={{ backgroundColor: primaryColor }}
+              >
+                {isUniversity ? (
+                  <GraduationCap className="w-6 h-6" strokeWidth={2} />
+                ) : (
+                  <School className="w-6 h-6" strokeWidth={2} />
+                )}
+              </div>
+            )}
             <div>
               <span className="inline-block text-[11px] font-medium tracking-wide uppercase px-2 py-0.5 rounded-[4px] bg-white/10 text-blue-200 border border-white/10">
                 {isUniversity ? "Portal Akademik Kampus" : "Portal Akademik Sekolah"}
@@ -109,12 +122,12 @@ export default async function LoginPage({ params }: LoginPageProps) {
       <div className="lg:col-span-7 flex flex-col justify-center items-center p-6 sm:p-10 lg:p-16">
         <div className="w-full max-w-md">
           {/* Card Form */}
-          <div className="bg-white border border-[#E2E8F0] rounded-[12px] p-6 sm:p-8 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-[12px] p-6 sm:p-8 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
             <div className="mb-6">
-              <h2 className="text-xl font-bold text-[#0F172A] tracking-tight">
+              <h2 className="text-xl font-bold text-[var(--text-main)] tracking-tight">
                 Masuk ke Akun Anda
               </h2>
-              <p className="text-xs text-[#64748B] mt-1">
+              <p className="text-xs text-[var(--text-subtle)] mt-1">
                 Gunakan kredensial akademik resmi yang diterbitkan oleh institusi.
               </p>
             </div>
@@ -126,7 +139,7 @@ export default async function LoginPage({ params }: LoginPageProps) {
             />
           </div>
 
-          <div className="mt-6 text-center text-xs text-[#64748B]">
+          <div className="mt-6 text-center text-xs text-[var(--text-subtle)]">
             Butuh bantuan akses? Hubungi Unit Layanan TI Kampus atau Administrator Akademik.
           </div>
         </div>

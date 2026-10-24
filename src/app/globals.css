@@ -119,3 +119,10 @@ code, kbd, samp, pre {
 ::-webkit-scrollbar-thumb:hover {
   background: #94A3B8;
 }
+
+/* Disable native browser password reveal/clear icons (prevent double eye icon) */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear,
+input::-webkit-credentials-auto-fill-button {
+  display: none !important;
+}

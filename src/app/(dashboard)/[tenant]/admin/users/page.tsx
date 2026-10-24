@@ -259,6 +259,34 @@ export default function UserManagementPage({
     }
   };
 
+  
+  // Ekspor Kartu Akun CSV untuk pengguna
+  async function handleExportAccountCards() {
+    try {
+      const userIds = users.map((u) => u.id);
+      if (userIds.length === 0) {
+        alert("Tidak ada pengguna untuk dicetak.");
+        return;
+      }
+      const res = await fetch("/api/admin/account-cards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userIds, exportCsv: true }),
+      });
+      if (!res.ok) throw new Error("Gagal mengunduh kartu akun.");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `kartu_akun_${tenantSlug}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err: any) {
+      alert(err.message || "Gagal mengunduh kartu akun.");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -296,6 +324,14 @@ export default function UserManagementPage({
             >
               <FileSpreadsheet className="w-4 h-4 mr-1.5" />
               Impor CSV
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleExportAccountCards}
+              title="Cetak & Ekspor Kartu Akun CSV"
+            >
+              <Download className="w-4 h-4 mr-1.5" />
+              Kartu Akun
             </Button>
             <a
               href="/api/admin/users/template"

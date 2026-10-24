@@ -1,9 +1,7 @@
-﻿import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth-options";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
-import { Sidebar } from "@/components/ui/sidebar";
-import { Header } from "@/components/ui/header";
 import { BreadcrumbProvider } from "@/components/ui/breadcrumb-context";
 import { DashboardShell } from "@/components/ui/dashboard-shell";
 
@@ -54,6 +52,8 @@ export default async function DashboardLayout({
         tenantSlug={tenant}
         institutionName={institution.name}
         institutionType={institution.type}
+        themeColor={institution.themeColor}
+        logoUrl={institution.logoUrl}
         user={session.user}
         academicTermName={activeTerm?.name || "Semester Aktif"}
       >

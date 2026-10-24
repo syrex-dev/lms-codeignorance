@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { LoginForm } from "./login-form";
 import { notFound } from "next/navigation";
-import { GraduationCap, School } from "lucide-react";
+import { GraduationCap, School, ShieldCheck, BookOpen, Sparkles } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -23,42 +23,112 @@ export default async function LoginPage({ params }: LoginPageProps) {
   }
 
   const isUniversity = institution.type === "UNIVERSITY";
+  const primaryColor = institution.themeColor || "#1E40AF";
 
   return (
-    <div className="min-h-screen bg-[#F6F7F9] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        {/* Institutional Header */}
-        <div className="text-center">
-          <div className="w-12 h-12 rounded-[6px] bg-[#1F4E8C] text-white flex items-center justify-center mx-auto mb-3">
-            {isUniversity ? (
-              <GraduationCap className="w-6 h-6" strokeWidth={1.75} />
-            ) : (
-              <School className="w-6 h-6" strokeWidth={1.75} />
-            )}
+    <div className="min-h-screen bg-[#F8FAFC] grid grid-cols-1 lg:grid-cols-12">
+      {/* Kolom Kiri: Panel Identitas Institusi (Desktop Split-Screen) */}
+      <div className="lg:col-span-5 bg-gradient-to-br from-[#0F172A] via-[#1E3A8A] to-[#172554] text-white p-8 sm:p-12 flex flex-col justify-between relative overflow-hidden">
+        {/* Subtle decorative background blur circles */}
+        <div className="absolute -top-24 -left-24 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -right-24 w-80 h-80 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Header Identitas Institusi */}
+        <div className="relative z-10">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-12 h-12 rounded-[8px] flex items-center justify-center font-bold text-lg text-white shadow-md border border-white/20 shrink-0"
+              style={{ backgroundColor: primaryColor }}
+            >
+              {isUniversity ? (
+                <GraduationCap className="w-6 h-6" strokeWidth={2} />
+              ) : (
+                <School className="w-6 h-6" strokeWidth={2} />
+              )}
+            </div>
+            <div>
+              <span className="inline-block text-[11px] font-medium tracking-wide uppercase px-2 py-0.5 rounded-[4px] bg-white/10 text-blue-200 border border-white/10">
+                {isUniversity ? "Portal Akademik Kampus" : "Portal Akademik Sekolah"}
+              </span>
+              <h2 className="text-xl font-bold tracking-tight text-white mt-0.5">
+                {institution.name}
+              </h2>
+            </div>
           </div>
-          <span className="text-xs font-medium text-[#4B5563] bg-[#E3E6EB] px-2.5 py-0.5 rounded-[4px]">
-            {isUniversity ? "Portal Akademik Kampus" : "Portal Akademik Sekolah"}
-          </span>
-          <h1 className="text-2xl font-semibold text-[#111827] mt-2 tracking-tight">
-            {institution.name}
-          </h1>
-          <p className="text-xs text-[#4B5563] mt-1">
-            Silakan masuk dengan akun institusional Anda
-          </p>
+
+          <div className="mt-8 space-y-4">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white leading-tight">
+              Sistem Informasi & Manajemen Pembelajaran Terpadu
+            </h1>
+            <p className="text-sm text-slate-300 leading-relaxed max-w-md">
+              Akses materi perkuliahan, interaksi kelas, pemantauan kurikulum, dan administrasi akademik dalam satu lingkungan digital yang aman dan modern.
+            </p>
+          </div>
+
+          {/* Highlights Institusional */}
+          <div className="mt-8 space-y-3 hidden sm:block">
+            <div className="flex items-start gap-3 p-3 rounded-[8px] bg-white/5 border border-white/10">
+              <BookOpen className="w-5 h-5 text-blue-300 shrink-0 mt-0.5" strokeWidth={1.75} />
+              <div className="text-xs">
+                <span className="font-semibold text-white block">Ruang Belajar Mandiri</span>
+                <span className="text-slate-300">Modul kaya materi, dokumen silabus, dan materi terstruktur per topik.</span>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-3 rounded-[8px] bg-white/5 border border-white/10">
+              <Sparkles className="w-5 h-5 text-amber-300 shrink-0 mt-0.5" strokeWidth={1.75} />
+              <div className="text-xs">
+                <span className="font-semibold text-white block">Pelacakan Capaian Nyata</span>
+                <span className="text-slate-300">Progres belajar transparan dan terverifikasi di setiap mata kuliah.</span>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-3 rounded-[8px] bg-white/5 border border-white/10">
+              <ShieldCheck className="w-5 h-5 text-emerald-300 shrink-0 mt-0.5" strokeWidth={1.75} />
+              <div className="text-xs">
+                <span className="font-semibold text-white block">Keamanan Multi-Tenant Terisolasi</span>
+                <span className="text-slate-300">Data institusi terproteksi penuh dengan Row-Level Security tingkat basis data.</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Login Form Box */}
-        <div className="mt-6 bg-white py-8 px-6 sm:px-8 border border-[#E3E6EB] rounded-[6px] shadow-none">
-          <LoginForm
-            tenantSlug={institution.slug}
-            institutionType={institution.type}
-            institutionDomain={institution.emailDomain}
-          />
+        {/* Footer Kolom Kiri */}
+        <div className="relative z-10 pt-8 border-t border-white/10 mt-8 text-xs text-slate-400">
+          <div>
+            Domain resmi institusi:{" "}
+            <strong className="text-white font-mono">{institution.emailDomain}</strong>
+          </div>
+          <div className="mt-1 text-[11px] text-slate-400">
+            &copy; 2026 {institution.name}. Hak cipta dilindungi undang-undang.
+          </div>
         </div>
+      </div>
 
-        {/* Domain footer note */}
-        <div className="mt-4 text-center text-xs text-[#6B7280]">
-          Domain resmi institusi: <strong className="font-mono text-[#4B5563]">{institution.emailDomain}</strong>
+      {/* Kolom Kanan: Panel Form Autentikasi */}
+      <div className="lg:col-span-7 flex flex-col justify-center items-center p-6 sm:p-10 lg:p-16">
+        <div className="w-full max-w-md">
+          {/* Card Form */}
+          <div className="bg-white border border-[#E2E8F0] rounded-[12px] p-6 sm:p-8 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+            <div className="mb-6">
+              <h2 className="text-xl font-bold text-[#0F172A] tracking-tight">
+                Masuk ke Akun Anda
+              </h2>
+              <p className="text-xs text-[#64748B] mt-1">
+                Gunakan kredensial akademik resmi yang diterbitkan oleh institusi.
+              </p>
+            </div>
+
+            <LoginForm
+              tenantSlug={institution.slug}
+              institutionType={institution.type}
+              institutionDomain={institution.emailDomain}
+            />
+          </div>
+
+          <div className="mt-6 text-center text-xs text-[#64748B]">
+            Butuh bantuan akses? Hubungi Unit Layanan TI Kampus atau Administrator Akademik.
+          </div>
         </div>
       </div>
     </div>

@@ -180,6 +180,9 @@ export async function getClassroomDetail(params: {
                 id: true,
                 fullName: true,
                 avatarUrl: true,
+                identifiers: {
+                  select: { value: true, type: true, isPrimary: true },
+                },
               },
             },
           },
@@ -192,6 +195,9 @@ export async function getClassroomDetail(params: {
                 id: true,
                 fullName: true,
                 avatarUrl: true,
+                identifiers: {
+                  select: { value: true, type: true, isPrimary: true },
+                },
                 // PRIVASI KETAT: TIDAK ADA nomor HP, tanggal lahir, atau contactEmail!
               },
             },
@@ -297,25 +303,32 @@ export async function getClassroomDetail(params: {
       progressPercentage = prog.percentage;
     }
 
-    // Tab Anggota tersanitasi (hanya nama, avatar, dan peran)
+    // Tab Anggota tersanitasi (nama, avatar, NIM/NIDN, dan peran)
     const sanitizedMembers = [
       ...classCourse.instructors.map((i: any) => ({
         id: i.instructor.id,
         fullName: i.instructor.fullName,
         avatarUrl: i.instructor.avatarUrl,
+        identifier: i.instructor.identifiers?.find((id: any) => id.isPrimary)?.value || i.instructor.identifiers?.[0]?.value || null,
+        identifierType: i.instructor.identifiers?.find((id: any) => id.isPrimary)?.type || i.instructor.identifiers?.[0]?.type || "NIDN",
         role: "PENGAJAR",
         isPrimary: i.isPrimary,
+        status: "ACTIVE",
       })),
       ...classCourse.enrollments.map((e: any) => ({
         id: e.student.id,
         fullName: e.student.fullName,
         avatarUrl: e.student.avatarUrl,
+        identifier: e.student.identifiers?.find((id: any) => id.isPrimary)?.value || e.student.identifiers?.[0]?.value || null,
+        identifierType: e.student.identifiers?.find((id: any) => id.isPrimary)?.type || e.student.identifiers?.[0]?.type || "NIM",
         role: "SISWA",
+        status: e.status || "ACTIVE",
       })),
     ];
 
     return {
       ...classCourse,
+      enrollmentCount: classCourse.enrollments.length,
       topics: enrichedTopics,
       members: sanitizedMembers,
       isTeacher,

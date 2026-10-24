@@ -4,7 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, ArrowLeft, CheckCircle2, Building2 } from "lucide-react";
-import { DevOtpInbox } from "@/components/dev/dev-otp-inbox";
+import dynamic from "next/dynamic";
+
+const DevOtpInbox = dynamic(
+  () => import("@/components/dev/dev-otp-inbox").then((mod) => mod.DevOtpInbox),
+  { ssr: false }
+);
 
 export default function TenantSignupPage() {
   const router = useRouter();

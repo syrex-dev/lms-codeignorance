@@ -309,18 +309,20 @@ export const authOptions: NextAuthOptions = {
             ? await withTenantTransaction(tenantId, async (tenantDb) =>
                 tenantDb.user.findUnique({
                   where: { id: token.id as string },
-                  select: { sessionVersion: true, status: true },
+                  select: { sessionVersion: true, status: true, mustChangePassword: true },
                 })
               )
             : await platformPrisma.user.findUnique({
                 where: { id: token.id as string },
-                select: { sessionVersion: true, status: true },
+                select: { sessionVersion: true, status: true, mustChangePassword: true },
               });
 
           if (!dbUser || dbUser.sessionVersion !== token.sessionVersion || dbUser.status === "SUSPENDED" || dbUser.status === "DEACTIVATED") {
             // Sesi dibatalkan secara instan karena sessionVersion usang atau akun nonaktif
             return {} as any;
           }
+          token.status = dbUser.status;
+          token.mustChangePassword = dbUser.mustChangePassword;
         } catch (err) {
           console.error("JWT sessionVersion check error:", err);
           return {} as any;

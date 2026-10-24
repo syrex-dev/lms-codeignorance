@@ -1,43 +1,68 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 :root {
-  --background: #F6F7F9;
-  --foreground: #111827;
-  --card: #FFFFFF;
-  --card-foreground: #111827;
-  --popover: #FFFFFF;
-  --popover-foreground: #111827;
+  /* Surfaces & Canvas Layering */
+  --bg-canvas: #F8FAFC;
+  --bg-surface: #FFFFFF;
+  --bg-subtle: #F1F5F9;
+  --bg-muted: #E2E8F0;
 
-  /* Tenant accent token (Default: Biru Tua Institusional #1F4E8C) */
-  --tenant-accent: #1F4E8C;
-  --tenant-accent-hover: #183E6F;
-  --tenant-accent-subtle: #EBF2FA;
+  /* Typography Colors */
+  --text-main: #0F172A;
+  --text-muted: #475569;
+  --text-subtle: #64748B;
+  --text-disabled: #94A3B8;
+
+  /* Borders & Shadows */
+  --border-subtle: #E2E8F0;
+  --border-strong: #CBD5E1;
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+
+  /* Radius Scales */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius: 8px;
+
+  /* Dynamic Tenant Accent Tokens (Default Navy) */
+  --accent-50: #EFF6FF;
+  --accent-100: #DBEAFE;
+  --accent-200: #BFDBFE;
+  --accent-300: #93C5FD;
+  --accent-400: #60A5FA;
+  --accent-500: #3B82F6;
+  --accent-600: #1D4ED8;
+  --accent-700: #1E40AF;
+  --tenant-accent: #1E40AF;
+  --tenant-accent-hover: #1D4ED8;
+  --tenant-accent-subtle: #EFF6FF;
   --tenant-accent-foreground: #FFFFFF;
 
-  --muted: #F3F4F6;
-  --muted-foreground: #4B5563;
-  --border: #E3E6EB;
-  --input: #E3E6EB;
-  --ring: #1F4E8C;
+  /* Semantic Status Colors */
+  --status-success: #15803D;
+  --status-success-bg: #DCFCE7;
+  --status-success-border: #BBF7D0;
 
-  /* Status Colors */
-  --success: #15803D;
-  --success-bg: #F0FDF4;
-  --success-border: #BBF7D0;
-  --warning: #B45309;
-  --warning-bg: #FFFBEB;
-  --warning-border: #FDE68A;
-  --danger: #B91C1C;
-  --danger-bg: #FEF2F2;
-  --danger-border: #FECACA;
+  --status-warning: #B45309;
+  --status-warning-bg: #FEF3C7;
+  --status-warning-border: #FDE68A;
 
-  --radius: 6px;
+  --status-danger: #B91C1C;
+  --status-danger-bg: #FEE2E2;
+  --status-danger-border: #FECACA;
+
+  --status-info: #1D4ED8;
+  --status-info-bg: #DBEAFE;
+  --status-info-border: #BFDBFE;
 }
 
 body {
   font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  color: var(--foreground);
-  background-color: var(--background);
+  color: var(--text-main);
+  background-color: var(--bg-canvas);
+  line-height: 1.5;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
@@ -46,19 +71,37 @@ code, kbd, samp, pre {
   font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
-/* Institutional Clean Utilities */
+/* Accessible focus ring */
+:focus-visible {
+  outline: 2px solid var(--accent-600);
+  outline-offset: 2px;
+}
+
+/* Reduced motion respect */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Modern Card Surface with Subtle Depth */
 .surface-card {
-  background-color: #FFFFFF;
-  border: 1px solid #E3E6EB;
-  border-radius: 6px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  transition: border-color 150ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 150ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.table-row-clean {
-  height: 44px;
-  border-bottom: 1px solid #E3E6EB;
+.surface-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
 }
 
-/* Simple, flat, clean scrollbar */
+/* Clean Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -69,10 +112,10 @@ code, kbd, samp, pre {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D1D5DB;
+  background: #CBD5E1;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9CA3AF;
+  background: #94A3B8;
 }

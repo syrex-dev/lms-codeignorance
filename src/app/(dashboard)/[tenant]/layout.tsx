@@ -1,9 +1,11 @@
-import { getServerSession } from "next-auth";
+﻿import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth-options";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Header } from "@/components/ui/header";
+import { BreadcrumbProvider } from "@/components/ui/breadcrumb-context";
+import { DashboardShell } from "@/components/ui/dashboard-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -47,29 +49,16 @@ export default async function DashboardLayout({
   const activeTerm = institution.academicTerms[0];
 
   return (
-    <div className="min-h-screen flex bg-[#F6F7F9]">
-      {/* 240px Fixed/Drawer Institutional Sidebar */}
-      <Sidebar
+    <BreadcrumbProvider>
+      <DashboardShell
         tenantSlug={tenant}
         institutionName={institution.name}
         institutionType={institution.type}
-        role={session.user.activeRole}
-      />
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* 56px Institutional Header */}
-        <Header
-          tenantSlug={tenant}
-          user={session.user}
-          institutionType={institution.type}
-          academicTermName={activeTerm?.name || "Semester Aktif"}
-        />
-
-        <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-6xl w-full mx-auto">
-          {children}
-        </main>
-      </div>
-    </div>
+        user={session.user}
+        academicTermName={activeTerm?.name || "Semester Aktif"}
+      >
+        {children}
+      </DashboardShell>
+    </BreadcrumbProvider>
   );
 }

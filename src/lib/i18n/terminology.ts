@@ -15,6 +15,7 @@ export interface TerminologyMapping {
   academicTerm: string;
   gradeReport: string;
   credits: string;
+  creditsShort: string;
   studyPlan: string;
   admission: string;
   admissionShort: string;
@@ -38,6 +39,7 @@ const SCHOOL_TERMINOLOGY: TerminologyMapping = {
   academicTerm: "Tahun Ajaran & Semester",
   gradeReport: "Nilai Rapor",
   credits: "Jam Pelajaran (JP)",
+  creditsShort: "JP",
   studyPlan: "Pembagian Kelas",
   admission: "PPDB (Penerimaan Peserta Didik Baru)",
   admissionShort: "PPDB",
@@ -60,7 +62,8 @@ const UNIVERSITY_TERMINOLOGY: TerminologyMapping = {
   teacherId: "NIDN / NIP",
   academicTerm: "Tahun Akademik & Semester",
   gradeReport: "Kartu Hasil Studi (KHS) / Transkrip",
-  credits: "Satuan Kredit Semester (SKS)",
+  credits: "SKS",
+  creditsShort: "SKS",
   studyPlan: "Kartu Rencana Studi (KRS)",
   admission: "PMB (Penerimaan Mahasiswa Baru)",
   admissionShort: "PMB",
@@ -79,4 +82,23 @@ export function getTerminology(
     return SCHOOL_TERMINOLOGY;
   }
   return UNIVERSITY_TERMINOLOGY;
+}
+
+/**
+ * Menghasilkan label peran dalam Bahasa Indonesia baku
+ */
+export function getRoleBadgeLabel(role: string, isSchool: boolean = false): string {
+  switch (role) {
+    case "STUDENT":
+      return isSchool ? "Siswa" : "Mahasiswa";
+    case "TEACHER":
+    case "INSTRUCTOR":
+      return isSchool ? "Guru" : "Dosen";
+    case "INSTITUTION_ADMIN":
+      return "Admin";
+    case "SUPER_ADMIN":
+      return "Super Admin";
+    default:
+      return role;
+  }
 }

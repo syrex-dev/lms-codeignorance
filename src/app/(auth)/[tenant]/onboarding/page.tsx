@@ -24,7 +24,10 @@ export default async function OnboardingPage({ params }: OnboardingPageProps) {
 
   // Ambil data user & institusi dari database menggunakan transaksi RLS
   const tenantId = session.user.activeInstitutionId;
-  const user = await withTenantTransaction(tenantId, async (tenantDb) => {
+  if (!tenantId) {
+    redirect(`/${tenant}/login`);
+  }
+  const user: any = await withTenantTransaction(tenantId, async (tenantDb: any) => {
     return tenantDb.user.findUnique({
       where: { id: session.user.id },
       include: {

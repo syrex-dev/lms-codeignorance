@@ -300,11 +300,11 @@ export const authOptions: NextAuthOptions = {
 
           if (!dbUser || dbUser.sessionVersion !== token.sessionVersion || dbUser.status === "SUSPENDED" || dbUser.status === "DEACTIVATED") {
             // Sesi dibatalkan secara instan karena sessionVersion usang atau akun nonaktif
-            return {};
+            return {} as any;
           }
         } catch (err) {
           console.error("JWT sessionVersion check error:", err);
-          return {};
+          return {} as any;
         }
       }
 

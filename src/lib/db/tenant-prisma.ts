@@ -31,6 +31,10 @@ export const TENANT_SCOPED_MODELS = [
   "tenantFeatureOverride",
   "tenantDomain",
   "idCounter",
+  "topic",
+  "material",
+  "materialFile",
+  "materialProgress",
 ] as const;
 
 export type TenantScopedModel = (typeof TENANT_SCOPED_MODELS)[number];

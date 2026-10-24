@@ -234,14 +234,14 @@ describe("FASE 2B: VERIFIKASI & PENUTUPAN CELAH", () => {
 
       try {
         // A. Di produksi tanpa secret -> fail closed
-        process.env.NODE_ENV = "production";
+        (process.env as any).NODE_ENV = "production";
         const prodVerifier = new CloudflareTurnstileVerifier("");
         const prodRes = await prodVerifier.verify("any-token");
         expect(prodRes.success).toBe(false);
         expect(prodRes.error).toMatch(/fail[- ]closed/i);
 
         // B. Di test/dev tanpa flag eksplisit ALLOW_MOCK_CAPTCHA -> ditolak
-        process.env.NODE_ENV = "test";
+        (process.env as any).NODE_ENV = "test";
         process.env.ALLOW_MOCK_CAPTCHA = "false";
         const mockVerifierNoFlag = new MockCaptchaVerifier();
         const noFlagRes = await mockVerifierNoFlag.verify("pass");
@@ -253,7 +253,7 @@ describe("FASE 2B: VERIFIKASI & PENUTUPAN CELAH", () => {
         const flagRes = await mockVerifierWithFlag.verify("pass");
         expect(flagRes.success).toBe(true);
       } finally {
-        process.env.NODE_ENV = origEnv;
+        (process.env as any).NODE_ENV = origEnv;
         process.env.ALLOW_MOCK_CAPTCHA = origFlag;
       }
     });
@@ -266,7 +266,9 @@ describe("FASE 2B: VERIFIKASI & PENUTUPAN CELAH", () => {
           data: {
             email: "support.ops@platform.system",
             fullName: "Platform Support Ops",
-            role: "PLATFORM_SUPERADMIN",
+            passwordHash: "dummyHash",
+            phoneE164: "+6281111111111",
+            role: "SUPER_ADMIN",
           },
         });
       }

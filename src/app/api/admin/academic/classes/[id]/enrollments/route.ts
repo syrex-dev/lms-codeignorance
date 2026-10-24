@@ -13,7 +13,7 @@ export async function GET(
       return NextResponse.json({ error: "Sesi tidak valid." }, { status: 401 });
     }
 
-    const institutionId = session.user.activeInstitutionId;
+    const institutionId = session.user.activeInstitutionId as string;
     const { id: classCourseId } = await params;
 
     const classCourse = await prisma.classCourse.findFirst({
@@ -62,7 +62,7 @@ export async function POST(
       return NextResponse.json({ error: "Hanya Admin atau Pengajar yang dapat mendaftarkan peserta." }, { status: 403 });
     }
 
-    const institutionId = session.user.activeInstitutionId;
+    const institutionId = session.user.activeInstitutionId as string;
     const { id: classCourseId } = await params;
     const body = await req.json();
 
@@ -153,7 +153,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Hanya Admin yang dapat membatalkan pendaftaran siswa." }, { status: 403 });
     }
 
-    const institutionId = session.user.activeInstitutionId;
+    const institutionId = session.user.activeInstitutionId as string;
     const { id: classCourseId } = await params;
     const { searchParams } = new URL(req.url);
     const studentUserId = searchParams.get("studentUserId");

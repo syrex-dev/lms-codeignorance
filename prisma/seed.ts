@@ -392,15 +392,15 @@ async function main() {
     },
   });
 
-  // D. Dosen (DSN001) - PENDING_ACTIVATION
+  // D. Dosen (DSN001) - ACTIVE
   const dosenPass = await hash("DSN001");
   const dosen = await prisma.user.create({
     data: {
       institutionId: kampus.id,
       fullName: "Dr. Hendra Wijaya, M.Kom",
       passwordHash: dosenPass,
-      status: UserStatus.PENDING_ACTIVATION,
-      mustChangePassword: true,
+      status: UserStatus.ACTIVE,
+      mustChangePassword: false,
       phoneE164: "+6281234567004",
       contactEmail: "hendra.dosen@gmail.com",
     },
@@ -760,6 +760,147 @@ async function main() {
     },
   });
 
+  // Topik & Materi Demo Kampus (Fase 3)
+  const top1Kampus = await prisma.topic.create({
+    data: {
+      institutionId: kampus.id,
+      classCourseId: mkWeb.id,
+      title: "Pengenalan Arsitektur Web Modern",
+      description: "Membahas silabus, kontrak perkuliahan, dan pengenalan arsitektur modular web modern.",
+      meetingNumber: 1,
+      status: "PUBLISHED",
+      orderIndex: 0,
+    },
+  });
+  const mat1Kampus = await prisma.material.create({
+    data: {
+      institutionId: kampus.id,
+      topicId: top1Kampus.id,
+      type: "RICH_TEXT",
+      title: "Kontrak Kuliah & Silabus Semester",
+      content: "<p>Selamat datang di mata kuliah <strong>Pemrograman Web Modern</strong>. Perkuliahan ini akan berfokus pada arsitektur full-stack Next.js dan TypeScript.</p>",
+      status: "PUBLISHED",
+      isRequired: true,
+      orderIndex: 0,
+    },
+  });
+  const mat2Kampus = await prisma.material.create({
+    data: {
+      institutionId: kampus.id,
+      topicId: top1Kampus.id,
+      type: "FILE",
+      title: "Slide Pengantar TypeScript & Node.js",
+      fileName: "slide-pengantar.pdf",
+      fileType: "application/pdf",
+      fileSize: 204850,
+      status: "PUBLISHED",
+      isRequired: true,
+      orderIndex: 1,
+    },
+  });
+  await prisma.materialFile.create({
+    data: {
+      institutionId: kampus.id,
+      materialId: mat2Kampus.id,
+      storageKey: "kampus/materials/slide-pengantar.pdf",
+      fileName: "slide-pengantar.pdf",
+      mimeType: "application/pdf",
+      fileSize: 204850,
+      uploadedById: dosen.id,
+    },
+  });
+  const mat3Kampus = await prisma.material.create({
+    data: {
+      institutionId: kampus.id,
+      topicId: top1Kampus.id,
+      type: "VIDEO_LINK",
+      title: "Tutorial Setup Environment Next.js & Docker",
+      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      videoUrl: "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0",
+      status: "PUBLISHED",
+      isRequired: false,
+      orderIndex: 2,
+    },
+  });
+
+  const top2Kampus = await prisma.topic.create({
+    data: {
+      institutionId: kampus.id,
+      classCourseId: mkWeb.id,
+      title: "Dasar Komponen React & Server Components",
+      description: "Memahami paradigma server components vs client components di Next.js.",
+      meetingNumber: 2,
+      status: "PUBLISHED",
+      orderIndex: 1,
+    },
+  });
+  const mat4Kampus = await prisma.material.create({
+    data: {
+      institutionId: kampus.id,
+      topicId: top2Kampus.id,
+      type: "EXTERNAL_LINK",
+      title: "Dokumentasi Resmi React Server Components",
+      url: "https://react.dev",
+      status: "PUBLISHED",
+      isRequired: true,
+      orderIndex: 0,
+    },
+  });
+  const mat5Kampus = await prisma.material.create({
+    data: {
+      institutionId: kampus.id,
+      topicId: top2Kampus.id,
+      type: "RICH_TEXT",
+      title: "Draft Latihan Interaktif State Management",
+      content: "<p>Latihan mandiri untuk membuat form interaktif dengan validasi Zod.</p>",
+      status: "DRAFT",
+      isRequired: true,
+      orderIndex: 1,
+    },
+  });
+
+  const top3Kampus = await prisma.topic.create({
+    data: {
+      institutionId: kampus.id,
+      classCourseId: mkWeb.id,
+      title: "Desain Skema Database & Row-Level Security",
+      description: "Topik terjadwal untuk minggu depan.",
+      meetingNumber: 3,
+      status: "SCHEDULED",
+      publishAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+      orderIndex: 2,
+    },
+  });
+
+  // Sebagian Progres Belajar Mahasiswa
+  await prisma.materialProgress.createMany({
+    data: [
+      {
+        institutionId: kampus.id,
+        materialId: mat1Kampus.id,
+        studentUserId: mhs1.id,
+        isCompleted: true,
+        completedAt: new Date(),
+        lastViewedAt: new Date(),
+      },
+      {
+        institutionId: kampus.id,
+        materialId: mat2Kampus.id,
+        studentUserId: mhs1.id,
+        isCompleted: true,
+        completedAt: new Date(),
+        lastViewedAt: new Date(),
+      },
+      {
+        institutionId: kampus.id,
+        materialId: mat1Kampus.id,
+        studentUserId: cindyUser.id,
+        isCompleted: false,
+        lastViewedAt: new Date(),
+      },
+    ],
+  });
+
   console.log("✅ Data Demo Kampus (Politeknik Mitra Indonesia) berhasil di-seed!");
 
   // ========================================================
@@ -1005,6 +1146,116 @@ async function main() {
       dayOfWeek: DayOfWeek.TUESDAY,
       startTime: "07:30",
       endTime: "09:00",
+    },
+  });
+
+  // Topik & Materi Demo Sekolah (Fase 3)
+  const top1Sekolah = await prisma.topic.create({
+    data: {
+      institutionId: sekolah.id,
+      classCourseId: mapelMatematika.id,
+      title: "Eksponen dan Logaritma",
+      description: "Memahami konsep bilangan berpangkat dan sifat-sifat eksponen.",
+      meetingNumber: 1,
+      status: "PUBLISHED",
+      orderIndex: 0,
+    },
+  });
+  const mat1Sekolah = await prisma.material.create({
+    data: {
+      institutionId: sekolah.id,
+      topicId: top1Sekolah.id,
+      type: "RICH_TEXT",
+      title: "Pengertian dan Sifat Dasar Eksponen",
+      content: "<p>Eksponen adalah perkalian berulang dari suatu bilangan yang sama.</p>",
+      status: "PUBLISHED",
+      isRequired: true,
+      orderIndex: 0,
+    },
+  });
+  const mat2Sekolah = await prisma.material.create({
+    data: {
+      institutionId: sekolah.id,
+      topicId: top1Sekolah.id,
+      type: "FILE",
+      title: "Lembar Kerja Siswa (LKS) Eksponen",
+      fileName: "lks-eksponen.pdf",
+      fileType: "application/pdf",
+      fileSize: 102400,
+      status: "PUBLISHED",
+      isRequired: true,
+      orderIndex: 1,
+    },
+  });
+  await prisma.materialFile.create({
+    data: {
+      institutionId: sekolah.id,
+      materialId: mat2Sekolah.id,
+      storageKey: "sekolah/materials/lks-eksponen.pdf",
+      fileName: "lks-eksponen.pdf",
+      mimeType: "application/pdf",
+      fileSize: 102400,
+      uploadedById: guru.id,
+    },
+  });
+
+  const top2Sekolah = await prisma.topic.create({
+    data: {
+      institutionId: sekolah.id,
+      classCourseId: mapelMatematika.id,
+      title: "Fungsi Eksponen dan Grafik",
+      description: "Menggambar grafik fungsi eksponen dan aplikasinya dalam pertumbuhan.",
+      meetingNumber: 2,
+      status: "PUBLISHED",
+      orderIndex: 1,
+    },
+  });
+  const mat3Sekolah = await prisma.material.create({
+    data: {
+      institutionId: sekolah.id,
+      topicId: top2Sekolah.id,
+      type: "EXTERNAL_LINK",
+      title: "Simulasi Grafik Interaktif Geogebra",
+      url: "https://www.geogebra.org",
+      status: "PUBLISHED",
+      isRequired: true,
+      orderIndex: 0,
+    },
+  });
+  const mat4Sekolah = await prisma.material.create({
+    data: {
+      institutionId: sekolah.id,
+      topicId: top2Sekolah.id,
+      type: "RICH_TEXT",
+      title: "Draft Pembahasan Soal Cerita",
+      content: "<p>Kumpulan soal cerita pertumbuhan bakteri dan peluruhan radioaktif.</p>",
+      status: "DRAFT",
+      isRequired: true,
+      orderIndex: 1,
+    },
+  });
+
+  const top3Sekolah = await prisma.topic.create({
+    data: {
+      institutionId: sekolah.id,
+      classCourseId: mapelMatematika.id,
+      title: "Persamaan dan Pertidaksamaan Logaritma",
+      description: "Pertemuan terjadwal minggu depan.",
+      meetingNumber: 3,
+      status: "SCHEDULED",
+      publishAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+      orderIndex: 2,
+    },
+  });
+
+  await prisma.materialProgress.create({
+    data: {
+      institutionId: sekolah.id,
+      materialId: mat1Sekolah.id,
+      studentUserId: siswa.id,
+      isCompleted: true,
+      completedAt: new Date(),
+      lastViewedAt: new Date(),
     },
   });
 

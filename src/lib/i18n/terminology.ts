@@ -20,6 +20,7 @@ export interface TerminologyMapping {
   admissionShort: string;
   gpa: string;
   faculty: string;
+  meeting: string;
 }
 
 const SCHOOL_TERMINOLOGY: TerminologyMapping = {
@@ -42,6 +43,7 @@ const SCHOOL_TERMINOLOGY: TerminologyMapping = {
   admissionShort: "PPDB",
   gpa: "Rata-rata Nilai Rapor",
   faculty: "Peminatan",
+  meeting: "Pertemuan",
 };
 
 const UNIVERSITY_TERMINOLOGY: TerminologyMapping = {
@@ -64,6 +66,7 @@ const UNIVERSITY_TERMINOLOGY: TerminologyMapping = {
   admissionShort: "PMB",
   gpa: "IPS / IPK",
   faculty: "Fakultas",
+  meeting: "Pertemuan / Minggu",
 };
 
 /**

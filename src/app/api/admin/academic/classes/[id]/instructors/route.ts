@@ -18,7 +18,7 @@ export async function POST(
       return NextResponse.json({ error: "Hanya Admin yang dapat menugaskan pengajar." }, { status: 403 });
     }
 
-    const institutionId = session.user.activeInstitutionId;
+    const institutionId = session.user.activeInstitutionId as string;
     const { id: classCourseId } = await params;
     const body = await req.json();
     const { instructorUserId, isPrimary = true } = body;
@@ -85,7 +85,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Hanya Admin yang dapat membatalkan penugasan pengajar." }, { status: 403 });
     }
 
-    const institutionId = session.user.activeInstitutionId;
+    const institutionId = session.user.activeInstitutionId as string;
     const { id: classCourseId } = await params;
     const { searchParams } = new URL(req.url);
     const instructorUserId = searchParams.get("instructorUserId");

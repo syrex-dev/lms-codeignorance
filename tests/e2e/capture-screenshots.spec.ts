@@ -259,6 +259,34 @@ test.describe("C.4 Capture Institutional Multi-Viewport Screenshots & 320px Over
       await captureBoth("admin-settings-audit");
     }
 
+    // 11. Halaman Ganti Kata Sandi
+    console.log("📸 11. Mengambil screenshot Halaman Ganti Kata Sandi...");
+    await page.goto("http://localhost:3000/poltekmi/change-password");
+    await page.waitForLoadState("networkidle");
+    await captureBoth("change-password");
+
     console.log("🎉 SEMUA SCREENSHOT MULTI-VIEWPORT BERHASIL DIAMBIL SEMPURNA!");
+  });
+
+  test.afterAll(async () => {
+    const bcrypt = await import("bcryptjs");
+    const dbUrl = process.env.PLATFORM_DATABASE_URL || process.env.TEST_DATABASE_URL;
+    const prisma = new PrismaClient(dbUrl ? { datasources: { db: { url: dbUrl } } } : undefined);
+    const mhs1Pass = await bcrypt.hash("2301010011", 10);
+    await prisma.user.updateMany({
+      where: { identifiers: { some: { value: "2301010011" } } },
+      data: {
+        status: "PENDING_ACTIVATION",
+        mustChangePassword: true,
+        passwordHash: mhs1Pass,
+        phoneE164: "+6281234567005",
+        birthDate: new Date("2004-05-15"),
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
+    });
+    await prisma.otpChallenge.deleteMany();
+    await prisma.$disconnect();
+    console.log("🔄 Reset akun Budi Santoso di afterAll selesai.");
   });
 });

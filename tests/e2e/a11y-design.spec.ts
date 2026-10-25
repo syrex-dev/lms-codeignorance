@@ -21,6 +21,27 @@ test.describe("C.3 Otomasi Aksesibilitas (Axe WCAG 2.1 AA) & Integritas Desain S
     await prisma.$disconnect();
   });
 
+async function resetBudiForOnboarding() {
+  const bcrypt = await import("bcryptjs");
+  const dbUrl = process.env.PLATFORM_DATABASE_URL || process.env.TEST_DATABASE_URL;
+  const prisma = new PrismaClient(dbUrl ? { datasources: { db: { url: dbUrl } } } : undefined);
+  const mhs1Pass = await bcrypt.hash("2301010011", 10);
+  await prisma.user.updateMany({
+    where: { identifiers: { some: { value: "2301010011" } } },
+    data: {
+      status: "PENDING_ACTIVATION",
+      mustChangePassword: true,
+      passwordHash: mhs1Pass,
+      phoneE164: "+6281234567005",
+      birthDate: new Date("2004-05-15"),
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+    },
+  });
+  await prisma.otpChallenge.deleteMany();
+  await prisma.$disconnect();
+}
+
   const emojiRegex =
     /[\u{1F300}-\u{1F5FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
 
@@ -82,6 +103,7 @@ test.describe("C.3 Otomasi Aksesibilitas (Axe WCAG 2.1 AA) & Integritas Desain S
   });
 
   test("2. Aksesibilitas Alur Onboarding", async ({ page }) => {
+    await resetBudiForOnboarding();
     await page.goto("http://localhost:3000/poltekmi/login");
     await page.waitForLoadState("networkidle");
     await page.fill("#identifier", "2301010011");
@@ -117,9 +139,28 @@ test.describe("C.3 Otomasi Aksesibilitas (Axe WCAG 2.1 AA) & Integritas Desain S
     await page.waitForLoadState("networkidle");
     await runA11yScan(page, "Tugas Mahasiswa");
 
-    await page.goto("http://localhost:3000/poltekmi/profile");
+    // Navigasi melalui dropdown navbar kanan atas ke Profil & Akun Saya
+    await page.locator('[data-testid="user-profile-menu-button"]').click();
+    await page.locator('[role="menuitem"]:has-text("Profil & Akun Saya")').click();
+    await page.waitForURL("**/poltekmi/profile", { timeout: 15000 });
     await page.waitForLoadState("networkidle");
     await runA11yScan(page, "Profil Mahasiswa");
+
+    // Navigasi melalui dropdown navbar kanan atas ke Ganti Kata Sandi
+    await page.locator('[data-testid="user-profile-menu-button"]').click();
+    await page.locator('[role="menuitem"]:has-text("Ganti Kata Sandi")').click();
+    await page.waitForURL("**/poltekmi/change-password", { timeout: 15000 });
+    await page.waitForLoadState("networkidle");
+    await runA11yScan(page, "Ganti Kata Sandi");
+
+    // Verifikasi tepat satu tombol toggle mata pada masing-masing 3 input password
+    await expect(page.locator('#currentPassword')).toBeVisible();
+    await expect(page.locator('#newPassword')).toBeVisible();
+    await expect(page.locator('#confirmPassword')).toBeVisible();
+
+    await expect(page.locator('div.relative:has(#currentPassword) button')).toHaveCount(1);
+    await expect(page.locator('div.relative:has(#newPassword) button')).toHaveCount(1);
+    await expect(page.locator('div.relative:has(#confirmPassword) button')).toHaveCount(1);
   });
 
   test("4. Aksesibilitas Dosen: Dashboard, Split-Pane Kelas (Materi, Anggota, Tugas), Jadwal, & Tugas", async ({ page }) => {

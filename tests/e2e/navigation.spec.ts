@@ -110,7 +110,28 @@ test.describe("B.6 & C Navigasi & Integritas Peran Demo Bebas 404 & Bebas Error 
         }
       }
 
-      // 4. Pastikan tidak ada error konsol
+      // 4. Uji navigasi dropdown profil di header
+      await page.goto("/poltekmi/dashboard");
+      await page.waitForLoadState("networkidle");
+
+      // Buka dropdown -> Profil & Akun Saya
+      await page.locator('[data-testid="user-profile-menu-button"]').click();
+      await page.locator('[role="menuitem"]:has-text("Profil & Akun Saya")').click();
+      await page.waitForURL("**/poltekmi/profile", { timeout: 15000 });
+      await page.waitForLoadState("networkidle");
+      await expect(page.locator("h1:has-text('Profil & Akun Saya')")).toBeVisible();
+
+      // Buka dropdown -> Ganti Kata Sandi
+      await page.locator('[data-testid="user-profile-menu-button"]').click();
+      await page.locator('[role="menuitem"]:has-text("Ganti Kata Sandi")').click();
+      await page.waitForURL("**/poltekmi/change-password", { timeout: 15000 });
+      await page.waitForLoadState("networkidle");
+      await expect(page.locator("h1:has-text('Ganti Kata Sandi')")).toBeVisible();
+      await expect(page.locator('#currentPassword')).toBeVisible();
+      await expect(page.locator('#newPassword')).toBeVisible();
+      await expect(page.locator('#confirmPassword')).toBeVisible();
+
+      // 5. Pastikan tidak ada error konsol
       expect(consoleErrors).toEqual([]);
     });
   }

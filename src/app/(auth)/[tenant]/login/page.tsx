@@ -33,7 +33,7 @@ export default async function LoginPage({ params }: LoginPageProps) {
   return (
     <div style={rootStyles} className="min-h-screen bg-[var(--bg-canvas)] grid grid-cols-1 lg:grid-cols-12">
       {/* Kolom Kiri: Panel Identitas Institusi (Desktop Split-Screen) */}
-      <div className="lg:col-span-5 bg-gradient-to-br from-[#0F172A] via-[#1E3A8A] to-[#172554] text-white p-8 sm:p-12 flex flex-col justify-between relative overflow-hidden">
+      <div className="lg:col-span-5 bg-[#0F172A] bg-gradient-to-br from-[#0F172A] via-[#1E3A8A] to-[#172554] text-white p-8 sm:p-12 flex flex-col justify-between relative overflow-hidden">
         {/* Subtle decorative background blur circles */}
         <div className="absolute -top-24 -left-24 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -right-24 w-80 h-80 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />

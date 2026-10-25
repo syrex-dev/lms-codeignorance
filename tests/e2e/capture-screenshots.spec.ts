@@ -162,6 +162,12 @@ test.describe("C.4 Capture Institutional Multi-Viewport Screenshots & 320px Over
     await page.waitForLoadState("networkidle");
     await captureBoth("profile-account");
 
+    // Transkrip & Buku Nilai Mahasiswa
+    console.log("📸 Transkrip Nilai Mahasiswa...");
+    await page.goto("http://localhost:3000/poltekmi/grades");
+    await page.waitForLoadState("networkidle");
+    await captureBoth("grades-student");
+
     // 4. Login Dosen (Dr. Hendra Wijaya: dsn001 / DSN001)
     console.log("📸 4. Mengambil screenshot Dashboard Dosen...");
     await page.context().clearCookies();
@@ -199,6 +205,27 @@ test.describe("C.4 Capture Institutional Multi-Viewport Screenshots & 320px Over
       await assignmentsTab.click();
       await page.waitForTimeout(500);
       await captureBoth("class-detail-assignments");
+    }
+
+    const attendanceTab = page.locator('button:has-text("Presensi"), [role="tab"]:has-text("Presensi")');
+    if (await attendanceTab.isVisible()) {
+      await attendanceTab.click();
+      await page.waitForTimeout(500);
+      await captureBoth("class-detail-attendance");
+    }
+
+    const gradebookTab = page.locator('button:has-text("Buku Nilai"), [role="tab"]:has-text("Buku Nilai")');
+    if (await gradebookTab.isVisible()) {
+      await gradebookTab.click();
+      await page.waitForTimeout(500);
+      await captureBoth("class-detail-gradebook");
+    }
+
+    const berandaTab = page.locator('button:has-text("Beranda & Silabus"), [role="tab"]:has-text("Beranda & Silabus")');
+    if (await berandaTab.isVisible()) {
+      await berandaTab.click();
+      await page.waitForTimeout(500);
+      await captureBoth("class-detail-announcements");
     }
 
     // Jadwal Perkuliahan

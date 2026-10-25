@@ -6,6 +6,11 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { getTerminology } from "@/lib/i18n/terminology";
 import { PageHeader } from "@/components/ui/page-header";
+import { AnnouncementsTab } from "@/components/classroom/announcements-tab";
+import { AttendanceTab } from "@/components/classroom/attendance-tab";
+import { QuizzesSection } from "@/components/classroom/quizzes-section";
+import { GradebookTab } from "@/components/classroom/gradebook-tab";
+import { CalendarCheck } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useBreadcrumb } from "@/components/ui/breadcrumb-context";
 import { RichTextEditor } from "@/components/classroom/rich-text-editor";
@@ -49,7 +54,7 @@ export default function ClassroomDetailPage() {
   const [classDetail, setClassDetail] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"MATERI" | "BERANDA" | "TUGAS" | "ANGGOTA">("MATERI");
+  const [activeTab, setActiveTab] = useState<"MATERI" | "BERANDA" | "TUGAS" | "ANGGOTA" | "PRESENSI" | "NILAI">("MATERI");
   const [previewAsStudent, setPreviewAsStudent] = useState(false);
 
   // Split-Pane Active Material Selection
@@ -749,6 +754,30 @@ export default function ClassroomDetailPage() {
             <span>Anggota Kelas ({studentCount + (classDetail.instructors?.length || 1)})</span>
             {activeTab === "ANGGOTA" && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1E40AF] rounded-t" />}
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("PRESENSI")}
+            className={`pb-3 font-semibold transition-colors flex items-center gap-2 relative ${
+              activeTab === "PRESENSI" ? "text-[#1E40AF]" : "text-[#64748B] hover:text-[#0F172A]"
+            }`}
+          >
+            <CalendarCheck className="w-4 h-4" strokeWidth={1.75} />
+            <span>Presensi</span>
+            {activeTab === "PRESENSI" && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1E40AF] rounded-t" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("NILAI")}
+            className={`pb-3 font-semibold transition-colors flex items-center gap-2 relative ${
+              activeTab === "NILAI" ? "text-[#1E40AF]" : "text-[#64748B] hover:text-[#0F172A]"
+            }`}
+          >
+            <Award className="w-4 h-4" strokeWidth={1.75} />
+            <span>Buku Nilai</span>
+            {activeTab === "NILAI" && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1E40AF] rounded-t" />}
+          </button>
         </nav>
       </div>
 
@@ -1234,25 +1263,14 @@ export default function ClassroomDetailPage() {
         </div>
       )}
 
-      {/* TAB 3: BERANDA & SILABUS */}
+      {/* TAB 3: BERANDA & SILABUS (PENGUMUMAN & SILABUS) */}
       {activeTab === "BERANDA" && (
-        <div className="bg-white border border-[#E2E8F0] rounded-[8px] p-6 shadow-xs space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-[#F1F5F9]">
-            <FileText className="w-4 h-4 text-[#1E40AF]" strokeWidth={1.75} />
-            <h2 className="text-sm font-semibold text-[#0F172A]">Deskripsi & Silabus Perkuliahan</h2>
-          </div>
-          <div className="text-xs text-[#334155] leading-relaxed space-y-3">
-            <p>
-              Mata kuliah <strong>{classDetail.name}</strong> ({classDetail.code}) dirancang untuk memberikan pemahaman menyeluruh dan keterampilan praktis sesuai dengan kurikulum standar institusi.
-            </p>
-            <div className="p-3 bg-[#F8FAFC] rounded border border-[#E2E8F0] space-y-1">
-              <div><strong>Beban Kredit:</strong> {classDetail.credits || 3} SKS</div>
-              <div><strong>Tahun Akademik:</strong> {classDetail.academicTerm?.name || "Semester Aktif"}</div>
-              <div><strong>Ruang Belajar:</strong> {classDetail.roomName || "LAB-KOMP-1"}</div>
-              <div><strong>Dosen Pengampu:</strong> {primaryInstructor}</div>
-            </div>
-          </div>
-        </div>
+        <AnnouncementsTab
+          classCourseId={classId}
+          isInstructor={canEdit}
+          classDetail={classDetail}
+          primaryInstructor={primaryInstructor}
+        />
       )}
 
       {/* TAB 4: ANGGOTA KELAS */}
@@ -1314,6 +1332,24 @@ export default function ClassroomDetailPage() {
             </table>
           </div>
         </div>
+      )}
+
+      {/* TAB 5: PRESENSI PERKULIAHAN */}
+      {activeTab === "PRESENSI" && (
+        <AttendanceTab
+          classCourseId={classId}
+          isInstructor={canEdit}
+          currentUserId={session?.user?.id || ""}
+        />
+      )}
+
+      {/* TAB 6: BUKU NILAI & EVALUASI */}
+      {activeTab === "NILAI" && (
+        <GradebookTab
+          classCourseId={classId}
+          isInstructor={canEdit}
+          currentUserId={session?.user?.id || ""}
+        />
       )}
 
       {/* MODAL: Tambah Topik */}

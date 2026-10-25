@@ -35,6 +35,14 @@ export const TENANT_SCOPED_MODELS = [
   "material",
   "materialFile",
   "materialProgress",
+  "quizAttempt",
+  "quizQuestion",
+  "quiz",
+  "attendanceRecord",
+  "attendanceSession",
+  "classAnnouncement",
+  "submission",
+  "assignment",
 ] as const;
 
 export type TenantScopedModel = (typeof TENANT_SCOPED_MODELS)[number];

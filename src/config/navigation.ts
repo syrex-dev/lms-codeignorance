@@ -85,6 +85,15 @@ export const NAVIGATION_REGISTRY: NavigationItem[] = [
     section: "AKADEMIK",
   },
   {
+    key: "grades",
+    labelKey: "Buku Nilai",
+    href: (tenantSlug: string) => `/${tenantSlug}/grades`,
+    feature: "classroom",
+    status: "ready",
+    iconName: "Award",
+    section: "AKADEMIK",
+  },
+  {
     key: "assignments",
     labelKey: "Tugas & Penilaian",
     href: (tenantSlug: string) => `/${tenantSlug}/assignments`,

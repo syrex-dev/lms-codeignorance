@@ -18,34 +18,42 @@ test.describe("C.3 Otomasi Aksesibilitas (Axe WCAG 2.1 AA) & Integritas Desain S
       },
       data: { status: "ACTIVE", mustChangePassword: false },
     });
+    // Pastikan institusi poltekmi kembali ke nama dan warna tema resmi
+    await prisma.institution.updateMany({
+      where: { slug: "poltekmi" },
+      data: { name: "Politeknik Mitra Indonesia", themeColor: "#1E40AF" },
+    });
     await prisma.$disconnect();
   });
 
-async function resetBudiForOnboarding() {
-  const bcrypt = await import("bcryptjs");
-  const dbUrl = process.env.PLATFORM_DATABASE_URL || process.env.TEST_DATABASE_URL;
-  const prisma = new PrismaClient(dbUrl ? { datasources: { db: { url: dbUrl } } } : undefined);
-  const mhs1Pass = await bcrypt.hash("2301010011", 10);
-  await prisma.user.updateMany({
-    where: { identifiers: { some: { value: "2301010011" } } },
-    data: {
-      status: "PENDING_ACTIVATION",
-      mustChangePassword: true,
-      passwordHash: mhs1Pass,
-      phoneE164: "+6281234567005",
-      birthDate: new Date("2004-05-15"),
-      failedLoginAttempts: 0,
-      lockedUntil: null,
-    },
-  });
-  await prisma.otpChallenge.deleteMany();
-  await prisma.$disconnect();
-}
+  async function resetBudiForOnboarding() {
+    const bcrypt = await import("bcryptjs");
+    const dbUrl = process.env.PLATFORM_DATABASE_URL || process.env.TEST_DATABASE_URL;
+    const prisma = new PrismaClient(dbUrl ? { datasources: { db: { url: dbUrl } } } : undefined);
+    const mhs1Pass = await bcrypt.hash("2301010011", 10);
+    await prisma.user.updateMany({
+      where: { identifiers: { some: { value: "2301010011" } } },
+      data: {
+        status: "PENDING_ACTIVATION",
+        mustChangePassword: true,
+        passwordHash: mhs1Pass,
+        phoneE164: "+6281234567005",
+        birthDate: new Date("2004-05-15"),
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
+    });
+    await prisma.otpChallenge.deleteMany();
+    await prisma.$disconnect();
+  }
 
   const emojiRegex =
     /[\u{1F300}-\u{1F5FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
 
   const runA11yScan = async (page: any, pageName: string) => {
+    // Pastikan dokumen memiliki title sebelum scan (hindari race condition hidrasi metadata Next.js di mobile)
+    await page.waitForFunction(() => !!document.title && document.title.trim().length > 0, { timeout: 5000 }).catch(() => {});
+
     // 1. Axe WCAG 2.1 AA Scan
     const results = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
@@ -90,6 +98,89 @@ async function resetBudiForOnboarding() {
       ).toBeFalsy();
     }
     await page.setViewportSize({ width: 1440, height: 900 });
+
+    // 5. Pemeriksaan Nyata Rasio Kontras (>= 4.5:1) via document.elementsFromPoint
+    const contrastViolations = await page.evaluate(() => {
+      function parseRgb(colorStr: string): [number, number, number] | null {
+        const match = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        if (!match) return null;
+        return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
+      }
+
+      function getLuminance(r: number, g: number, b: number): number {
+        const [rs, gs, bs] = [r, g, b].map((c) => {
+          c = c / 255;
+          return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+      }
+
+      function getContrastRatio(rgb1: [number, number, number], rgb2: [number, number, number]): number {
+        const lum1 = getLuminance(rgb1[0], rgb1[1], rgb1[2]);
+        const lum2 = getLuminance(rgb2[0], rgb2[1], rgb2[2]);
+        const brightest = Math.max(lum1, lum2);
+        const darkest = Math.min(lum1, lum2);
+        return (brightest + 0.05) / (darkest + 0.05);
+      }
+
+      const headings = Array.from(document.querySelectorAll("h1, h2"));
+      const violations: any[] = [];
+
+      for (const el of headings) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0 || rect.top < 0 || rect.left < 0) continue;
+        const text = el.textContent?.trim() || "";
+        if (!text) continue;
+
+        const fgStyle = window.getComputedStyle(el);
+        const fgRgb = parseRgb(fgStyle.color);
+        if (!fgRgb) continue;
+
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const elementsBehind = document.elementsFromPoint(cx, cy);
+
+        let bgRgb: [number, number, number] | null = null;
+        for (const candidate of elementsBehind) {
+          if (candidate === el) continue;
+          const bgStyle = window.getComputedStyle(candidate);
+          const bgCandidate = bgStyle.backgroundColor;
+          if (bgCandidate && bgCandidate !== "rgba(0, 0, 0, 0)" && bgCandidate !== "transparent") {
+            bgRgb = parseRgb(bgCandidate);
+            if (bgRgb) break;
+          }
+          const bgImage = bgStyle.backgroundImage;
+          if (bgImage && bgImage.includes("gradient")) {
+            const gradMatch = bgImage.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+            if (gradMatch) {
+              bgRgb = [parseInt(gradMatch[1], 10), parseInt(gradMatch[2], 10), parseInt(gradMatch[3], 10)];
+              break;
+            }
+          }
+        }
+
+        if (!bgRgb) {
+          bgRgb = [255, 255, 255];
+        }
+
+        const ratio = getContrastRatio(fgRgb, bgRgb);
+        if (ratio < 4.5) {
+          violations.push({
+            text: text.slice(0, 30),
+            ratio: Math.round(ratio * 10) / 10,
+            fg: fgStyle.color,
+            bg: `rgb(${bgRgb.join(",")})`,
+          });
+        }
+      }
+
+      return violations;
+    });
+
+    expect(
+      contrastViolations,
+      `Ditemukan elemen judul dengan rasio kontras < 4.5:1 di ${pageName}: ${JSON.stringify(contrastViolations)}`
+    ).toEqual([]);
   };
 
   test("1. Aksesibilitas Halaman Publik: Login & Lupa Sandi", async ({ page }) => {
@@ -115,7 +206,7 @@ async function resetBudiForOnboarding() {
     await runA11yScan(page, "Onboarding");
   });
 
-  test("3. Aksesibilitas Mahasiswa: Dashboard, Kelas, Jadwal, Tugas & Profil", async ({ page }) => {
+  test("3. Aksesibilitas Mahasiswa: Dashboard, Kelas, Jadwal, Tugas, Nilai & Profil", async ({ page }) => {
     await page.context().clearCookies();
     await page.goto("http://localhost:3000/poltekmi/login");
     await page.waitForLoadState("networkidle");
@@ -138,6 +229,10 @@ async function resetBudiForOnboarding() {
     await page.goto("http://localhost:3000/poltekmi/assignments");
     await page.waitForLoadState("networkidle");
     await runA11yScan(page, "Tugas Mahasiswa");
+
+    await page.goto("http://localhost:3000/poltekmi/grades");
+    await page.waitForLoadState("networkidle");
+    await runA11yScan(page, "Buku Nilai Mahasiswa");
 
     // Navigasi melalui dropdown navbar kanan atas ke Profil & Akun Saya
     await page.locator('[data-testid="user-profile-menu-button"]').click();
@@ -163,7 +258,7 @@ async function resetBudiForOnboarding() {
     await expect(page.locator('div.relative:has(#confirmPassword) button')).toHaveCount(1);
   });
 
-  test("4. Aksesibilitas Dosen: Dashboard, Split-Pane Kelas (Materi, Anggota, Tugas), Jadwal, & Tugas", async ({ page }) => {
+  test("4. Aksesibilitas Dosen: Dashboard, Split-Pane Kelas (Materi, Anggota, Tugas, Presensi, Nilai)", async ({ page }) => {
     await page.context().clearCookies();
     await page.goto("http://localhost:3000/poltekmi/login");
     await page.waitForLoadState("networkidle");
@@ -194,6 +289,20 @@ async function resetBudiForOnboarding() {
       await assignmentsTab.click();
       await page.waitForTimeout(400);
       await runA11yScan(page, "Detail Kelas Tugas & Evaluasi");
+    }
+
+    const attendanceTab = page.locator('button:has-text("Presensi"), [role="tab"]:has-text("Presensi")');
+    if (await attendanceTab.isVisible()) {
+      await attendanceTab.click();
+      await page.waitForTimeout(400);
+      await runA11yScan(page, "Detail Kelas Presensi");
+    }
+
+    const gradebookTab = page.locator('button:has-text("Buku Nilai"), [role="tab"]:has-text("Buku Nilai")');
+    if (await gradebookTab.isVisible()) {
+      await gradebookTab.click();
+      await page.waitForTimeout(400);
+      await runA11yScan(page, "Detail Kelas Buku Nilai");
     }
 
     await page.goto("http://localhost:3000/poltekmi/schedule");

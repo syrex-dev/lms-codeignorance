@@ -11,6 +11,12 @@ import {
   X,
   GraduationCap,
   School,
+  Users,
+  Settings,
+  User,
+  Clock,
+  CheckSquare,
+  Award,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -35,6 +41,13 @@ export function Sidebar({
   const iconMap: Record<string, React.ReactNode> = {
     LayoutDashboard: <LayoutDashboard className="w-4 h-4 shrink-0" strokeWidth={1.75} />,
     BookOpen: <BookOpen className="w-4 h-4 shrink-0" strokeWidth={1.75} />,
+    Users: <Users className="w-4 h-4 shrink-0" strokeWidth={1.75} />,
+    GraduationCap: <GraduationCap className="w-4 h-4 shrink-0" strokeWidth={1.75} />,
+    Settings: <Settings className="w-4 h-4 shrink-0" strokeWidth={1.75} />,
+    User: <User className="w-4 h-4 shrink-0" strokeWidth={1.75} />,
+    Clock: <Clock className="w-4 h-4 shrink-0" strokeWidth={1.75} />,
+    CheckSquare: <CheckSquare className="w-4 h-4 shrink-0" strokeWidth={1.75} />,
+    Award: <Award className="w-4 h-4 shrink-0" strokeWidth={1.75} />,
   };
 
   const navContent = (

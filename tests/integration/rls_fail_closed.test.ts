@@ -70,4 +70,28 @@ describe("RLS Guard: Fail-Closed Enforce (Koneksi lms_app tanpa tenant context W
 
     expect(foreignClasses.length).toBe(0);
   });
+
+  it("8. Koneksi langsung lms_app tanpa context mereturn 0 baris pada ClassAnnouncement", async () => {
+    await prisma.$executeRawUnsafe("SET app.current_tenant = '';");
+    const announcements = await prisma.classAnnouncement.findMany();
+    expect(announcements.length).toBe(0);
+  });
+
+  it("9. Koneksi langsung lms_app tanpa context mereturn 0 baris pada AttendanceSession dan AttendanceRecord", async () => {
+    await prisma.$executeRawUnsafe("SET app.current_tenant = '';");
+    const sessions = await prisma.attendanceSession.findMany();
+    const records = await prisma.attendanceRecord.findMany();
+    expect(sessions.length).toBe(0);
+    expect(records.length).toBe(0);
+  });
+
+  it("10. Koneksi langsung lms_app tanpa context mereturn 0 baris pada Quiz, QuizQuestion, dan QuizAttempt", async () => {
+    await prisma.$executeRawUnsafe("SET app.current_tenant = '';");
+    const quizzes = await prisma.quiz.findMany();
+    const questions = await prisma.quizQuestion.findMany();
+    const attempts = await prisma.quizAttempt.findMany();
+    expect(quizzes.length).toBe(0);
+    expect(questions.length).toBe(0);
+    expect(attempts.length).toBe(0);
+  });
 });

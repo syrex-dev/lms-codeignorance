@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy } from "@/proxy";
 import { GET as getSettings, PUT as putSettings } from "@/app/api/admin/settings/route";
@@ -192,5 +192,15 @@ describe("INTEGRASI HTTP: Admin Settings & Manajemen Akademik (Real Auth Token)"
     const body = await res.json();
     expect(Array.isArray(body.classes)).toBe(true);
     expect(body.classes.length).toBeGreaterThan(0);
+  });
+
+  afterAll(async () => {
+    await prisma.institution.update({
+      where: { slug: "poltekmi" },
+      data: {
+        name: "Politeknik Mitra Indonesia",
+        themeColor: "#1E40AF",
+      },
+    });
   });
 });

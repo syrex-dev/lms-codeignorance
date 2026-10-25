@@ -360,6 +360,12 @@ model Institution {
   materialProgresses  MaterialProgress[]
   assignments         Assignment[]
   submissions         Submission[]
+  classAnnouncements  ClassAnnouncement[]
+  attendanceSessions  AttendanceSession[]
+  attendanceRecords   AttendanceRecord[]
+  quizzes             Quiz[]
+  quizQuestions       QuizQuestion[]
+  quizAttempts        QuizAttempt[]
 
   @@index([slug])
   @@index([status])
@@ -421,6 +427,7 @@ model User {
   materialProgresses    MaterialProgress[]
   uploadedMaterialFiles MaterialFile[]
   submissions           Submission[]
+  classAnnouncements    ClassAnnouncement[]
   quizAttempts          QuizAttempt[]
   attendanceRecords     AttendanceRecord[]
   gradeEntries          GradeEntry[]
@@ -636,6 +643,7 @@ model ClassCourse {
   enrollments        ClassEnrollment[]
   topics             Topic[]
   assignments        Assignment[]
+  classAnnouncements ClassAnnouncement[]
   quizzes            Quiz[]
   attendanceSessions AttendanceSession[]
   gradeCategories    GradeCategory[]
@@ -847,137 +855,115 @@ model QuestionBank {
 
   institution Institution @relation(fields: [institutionId], references: [id])
   creator     User        @relation(fields: [creatorUserId], references: [id])
-  questions   Question[]
 }
 
-model Quiz {
-  id                 String    @id @default(uuid())
-  classCourseId      String?
-  title              String
-  description        String?
-  durationMinutes    Int       @default(60)
-  maxAttempts        Int       @default(1)
-  isShuffleQuestions Boolean   @default(false)
-  isShuffleOptions   Boolean   @default(false)
-  openAt             DateTime?
-  closeAt            DateTime?
-  passingScore       Float?    @default(70)
-  isPublished        Boolean   @default(true)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  deletedAt          DateTime?
+model ClassAnnouncement {
+  id            String   @id @default(uuid())
+  institutionId String
+  classCourseId String
+  authorUserId  String
+  title         String
+  content       String
+  isPinned      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  classCourse ClassCourse?  @relation(fields: [classCourseId], references: [id], onDelete: Cascade)
-  questions   Question[]
-  attempts    QuizAttempt[]
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  classCourse ClassCourse @relation(fields: [classCourseId], references: [id], onDelete: Cascade)
+  author      User        @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
 
-  @@index([classCourseId])
+  @@index([institutionId, classCourseId])
 }
 
-model Question {
-  id             String       @id @default(uuid())
-  questionBankId String?
-  quizId         String?
-  type           QuestionType
-  questionText   String
-  mediaUrl       String?
-  points         Float        @default(1)
-  orderIndex     Int          @default(0)
-  explanation    String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-
-  questionBank QuestionBank?    @relation(fields: [questionBankId], references: [id], onDelete: SetNull)
-  quiz         Quiz?            @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  options      QuestionOption[]
-  answers      QuizAnswer[]
-
-  @@index([quizId, orderIndex])
-}
-
-model QuestionOption {
-  id         String  @id @default(uuid())
-  questionId String
-  optionText String
-  isCorrect  Boolean @default(false)
-  orderIndex Int     @default(0)
-
-  question Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  answers  QuizAnswer[]
-}
-
-model QuizAttempt {
-  id            String        @id @default(uuid())
-  quizId        String
-  userId        String
-  attemptNumber Int           @default(1)
-  startedAt     DateTime      @default(now())
-  submittedAt   DateTime?
-  endsAt        DateTime
-  score         Float?
-  status        AttemptStatus @default(IN_PROGRESS)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  quiz    Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  user    User         @relation(fields: [userId], references: [id])
-  answers QuizAnswer[]
-
-  @@index([quizId, userId])
-}
-
-model QuizAnswer {
-  id               String   @id @default(uuid())
-  quizAttemptId    String
-  questionId       String
-  selectedOptionId String?
-  textAnswer       String?
-  isCorrect        Boolean?
-  scoreAwarded     Float?
-  feedback         String?
-  updatedAt        DateTime @updatedAt
-
-  quizAttempt    QuizAttempt     @relation(fields: [quizAttemptId], references: [id], onDelete: Cascade)
-  question       Question        @relation(fields: [questionId], references: [id])
-  selectedOption QuestionOption? @relation(fields: [selectedOptionId], references: [id])
-
-  @@unique([quizAttemptId, questionId])
-}
-
-// ----------------------------------------------------
-// 7. PRESENSI
-// ----------------------------------------------------
 model AttendanceSession {
   id            String   @id @default(uuid())
+  institutionId String
   classCourseId String
+  meetingNumber Int      @default(1)
   title         String
-  sessionDate   DateTime
-  startTime     DateTime
-  endTime       DateTime
+  date          DateTime @default(now())
+  status        String   @default("OPEN")
   accessCode    String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  institution Institution        @relation(fields: [institutionId], references: [id], onDelete: Cascade)
   classCourse ClassCourse        @relation(fields: [classCourseId], references: [id], onDelete: Cascade)
   records     AttendanceRecord[]
 
-  @@index([classCourseId, sessionDate])
+  @@index([institutionId, classCourseId])
 }
 
 model AttendanceRecord {
-  id                  String           @id @default(uuid())
-  attendanceSessionId String
-  studentUserId       String
-  status              AttendanceStatus @default(PRESENT)
-  notes               String?
-  markedByUserId      String?
-  recordedAt          DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
+  id            String   @id @default(uuid())
+  institutionId String
+  sessionId     String
+  studentUserId String
+  status        String   @default("PRESENT")
+  recordedAt    DateTime @default(now())
+  note          String?
 
-  attendanceSession AttendanceSession @relation(fields: [attendanceSessionId], references: [id], onDelete: Cascade)
-  student           User              @relation(fields: [studentUserId], references: [id])
+  institution Institution       @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  session     AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student     User              @relation(fields: [studentUserId], references: [id], onDelete: Cascade)
 
-  @@unique([attendanceSessionId, studentUserId])
+  @@unique([sessionId, studentUserId])
+  @@index([institutionId, sessionId])
+}
+
+model Quiz {
+  id              String    @id @default(uuid())
+  institutionId   String
+  classCourseId   String
+  title           String
+  description     String?
+  durationMinutes Int       @default(30)
+  passingScore    Float     @default(60.0)
+  status          String    @default("DRAFT")
+  dueDate         DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  institution Institution    @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  classCourse ClassCourse    @relation(fields: [classCourseId], references: [id], onDelete: Cascade)
+  questions   QuizQuestion[]
+  attempts    QuizAttempt[]
+
+  @@index([institutionId, classCourseId])
+}
+
+model QuizQuestion {
+  id                 String   @id @default(uuid())
+  institutionId      String
+  quizId             String
+  questionText       String
+  options            Json
+  correctOptionIndex Int      @default(0)
+  points             Float    @default(10.0)
+  orderIndex         Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  quiz        Quiz        @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@index([institutionId, quizId])
+}
+
+model QuizAttempt {
+  id            String   @id @default(uuid())
+  institutionId String
+  quizId        String
+  studentUserId String
+  answers       Json
+  score         Float    @default(0.0)
+  submittedAt   DateTime @default(now())
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  quiz        Quiz        @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  student     User        @relation(fields: [studentUserId], references: [id], onDelete: Cascade)
+
+  @@index([institutionId, quizId, studentUserId])
 }
 
 // ----------------------------------------------------

@@ -10,6 +10,15 @@ const DevOtpInbox = dynamic(
   { ssr: false }
 );
 
+async function safeJsonParse(res: Response, fallback = "Terjadi kesalahan pada sistem. Silakan coba kembali.") {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { error: text && text.length < 200 && !text.startsWith("<") ? text : fallback };
+  }
+}
+
 interface ForgotPasswordFormProps {
   tenantSlug: string;
 }
@@ -48,7 +57,7 @@ export function ForgotPasswordForm({ tenantSlug }: ForgotPasswordFormProps) {
         }),
       });
 
-      const data = await res.json();
+      const data = await safeJsonParse(res, "Gagal meminta kode verifikasi.");
       if (!res.ok) {
         throw new Error(data.error || "Gagal meminta kode verifikasi.");
       }
@@ -89,7 +98,7 @@ export function ForgotPasswordForm({ tenantSlug }: ForgotPasswordFormProps) {
         }),
       });
 
-      const verifyData = await verifyRes.json();
+      const verifyData = await safeJsonParse(verifyRes, "Kode verifikasi tidak valid.");
       if (!verifyRes.ok) {
         throw new Error(verifyData.error || "Kode verifikasi tidak valid.");
       }
@@ -107,7 +116,7 @@ export function ForgotPasswordForm({ tenantSlug }: ForgotPasswordFormProps) {
         }),
       });
 
-      const resetData = await resetRes.json();
+      const resetData = await safeJsonParse(resetRes, "Gagal mengatur ulang kata sandi.");
       if (!resetRes.ok) {
         throw new Error(resetData.error || "Gagal mengatur ulang kata sandi.");
       }

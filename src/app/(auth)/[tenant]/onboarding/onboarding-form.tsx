@@ -29,6 +29,15 @@ interface OnboardingFormProps {
   initialPhone?: string;
 }
 
+async function safeJsonParse(res: Response, fallback = "Terjadi kesalahan pada sistem. Silakan coba kembali.") {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { error: text && text.length < 200 && !text.startsWith("<") ? text : fallback };
+  }
+}
+
 type OnboardingStep = "PHONE" | "OTP" | "PASSWORD";
 
 export default function OnboardingForm({
@@ -57,6 +66,7 @@ export default function OnboardingForm({
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,7 +152,7 @@ export default function OnboardingForm({
         body: JSON.stringify(bodyPayload),
       });
 
-      const data = await res.json();
+      const data = await safeJsonParse(res, "Gagal memproses permintaan autentikasi.");
 
       if (!res.ok) {
         if (data.retryAfter) {
@@ -184,7 +194,7 @@ export default function OnboardingForm({
         }),
       });
 
-      const data = await res.json();
+      const data = await safeJsonParse(res, "Gagal memproses permintaan autentikasi.");
 
       if (!res.ok) {
         throw new Error(data.error || "Kode OTP tidak valid atau kedaluwarsa");
@@ -225,7 +235,7 @@ export default function OnboardingForm({
         }),
       });
 
-      const data = await res.json();
+      const data = await safeJsonParse(res, "Gagal memproses permintaan autentikasi.");
 
       if (!res.ok) {
         throw new Error(data.error || "Gagal mengaktifkan akun");
@@ -519,10 +529,12 @@ export default function OnboardingForm({
       {/* LANGKAH 3: GANTI PASSWORD BARU DENGAN CHECKLIST SYARAT REAL-TIME */}
       {step === "PASSWORD" && (
         <form onSubmit={handleCompleteOnboarding} className="space-y-4">
-          <div className="p-3 bg-[#F0FDF4] border border-[#BBF7D0] rounded-[8px] text-xs text-[#15803D] flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 shrink-0 text-[#15803D]" />
-            <span>Nomor ponsel berhasil diverifikasi! Buat kata sandi baru untuk menyelesaikan aktivasi akun.</span>
-          </div>
+          {!error && (
+            <div className="p-3 bg-[#F0FDF4] border border-[#BBF7D0] rounded-[8px] text-xs text-[#15803D] flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 shrink-0 text-[#15803D]" />
+              <span>Nomor ponsel berhasil diverifikasi! Buat kata sandi baru untuk menyelesaikan aktivasi akun.</span>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label htmlFor="newPassword" className="block text-xs font-semibold text-[#334155]">
@@ -635,15 +647,29 @@ export default function OnboardingForm({
             <label htmlFor="confirmPassword" className="block text-xs font-semibold text-[#334155]">
               Konfirmasi Kata Sandi Baru
             </label>
-            <input
-              id="confirmPassword"
-              type={showPassword ? "text" : "password"}
-              required
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Konfirmasi password baru"
-              className="w-full h-10 px-3 text-xs bg-white text-[#0F172A] border border-[#CBD5E1] rounded-[8px] transition focus:outline-none focus:ring-2 focus:ring-[#1E40AF] placeholder:text-[#94A3B8]"
-            />
+            <div className="relative">
+              <input
+                id="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Konfirmasi password baru"
+                className="w-full h-10 px-3 pr-10 text-xs bg-white text-[#0F172A] border border-[#CBD5E1] rounded-[8px] transition focus:outline-none focus:ring-2 focus:ring-[#1E40AF] placeholder:text-[#94A3B8]"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#475569] transition cursor-pointer p-1"
+                aria-label={showConfirmPassword ? "Sembunyikan konfirmasi kata sandi" : "Tampilkan konfirmasi kata sandi"}
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="w-4 h-4" strokeWidth={1.75} />
+                ) : (
+                  <Eye className="w-4 h-4" strokeWidth={1.75} />
+                )}
+              </button>
+            </div>
             {confirmPassword && newPassword !== confirmPassword && (
               <p className="text-[11px] text-red-600 mt-1">
                 Kata sandi konfirmasi belum cocok

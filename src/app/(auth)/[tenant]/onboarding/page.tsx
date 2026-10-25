@@ -48,7 +48,7 @@ export default async function OnboardingPage({ params }: OnboardingPageProps) {
   const primaryId = user.identifiers.find((i: any) => i.isPrimary)?.value || session.user.identifier || "";
 
   return (
-    <div className="min-h-screen bg-[#F6F7F9] flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#F6F7F9] py-10 sm:py-12 flex flex-col justify-center px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         {/* Institutional Header */}
         <div className="text-center">

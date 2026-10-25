@@ -2,7 +2,7 @@
 
 import React from "react";
 import { signOut } from "next-auth/react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbSeparator } from "./breadcrumb";
 import { useBreadcrumb } from "./breadcrumb-context";
@@ -40,6 +40,7 @@ export function Header({
   currentPageTitle,
   onToggleSidebar,
 }: HeaderProps) {
+  const router = useRouter();
   const pathname = usePathname();
   const { customTitle } = useBreadcrumb();
   const displayName = user.fullName || user.name || "Pengguna";
@@ -173,8 +174,8 @@ export function Header({
           <DropdownMenu.Trigger asChild>
             <button
               type="button"
+              data-testid="user-profile-menu-button"
               className="flex items-center gap-2 p-1.5 pl-2 hover:bg-[#F1F5F9] rounded-[8px] border border-transparent hover:border-[#E2E8F0] transition text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1E40AF]"
-              
             >
               <div className="w-7 h-7 rounded-full bg-[#1E40AF] text-white flex items-center justify-center text-xs font-semibold shrink-0 shadow-xs">
                 {displayName.charAt(0).toUpperCase()}
@@ -207,24 +208,20 @@ export function Header({
                 </div>
               </div>
 
-              <DropdownMenu.Item asChild>
-                <Link
-                  href={`/${tenantSlug}/profile`}
-                  className="flex items-center gap-2 px-3 py-2 text-[#334155] hover:text-[#0F172A] hover:bg-[#F8FAFC] rounded-[4px] cursor-pointer outline-none transition"
-                >
-                  <UserIcon className="w-3.5 h-3.5 text-[#64748B]" strokeWidth={1.5} />
-                  <span>Profil & Akun Saya</span>
-                </Link>
+              <DropdownMenu.Item
+                onSelect={() => router.push(`/${tenantSlug}/profile`)}
+                className="flex items-center gap-2 px-3 py-2 text-[#334155] hover:text-[#0F172A] hover:bg-[#F8FAFC] rounded-[4px] cursor-pointer outline-none transition"
+              >
+                <UserIcon className="w-3.5 h-3.5 text-[#64748B]" strokeWidth={1.5} />
+                <span>Profil & Akun Saya</span>
               </DropdownMenu.Item>
 
-              <DropdownMenu.Item asChild>
-                <Link
-                  href={`/${tenantSlug}/change-password`}
-                  className="flex items-center gap-2 px-3 py-2 text-[#334155] hover:text-[#0F172A] hover:bg-[#F8FAFC] rounded-[4px] cursor-pointer outline-none transition"
-                >
-                  <KeyRound className="w-3.5 h-3.5 text-[#64748B]" strokeWidth={1.5} />
-                  <span>Ganti Kata Sandi</span>
-                </Link>
+              <DropdownMenu.Item
+                onSelect={() => router.push(`/${tenantSlug}/change-password`)}
+                className="flex items-center gap-2 px-3 py-2 text-[#334155] hover:text-[#0F172A] hover:bg-[#F8FAFC] rounded-[4px] cursor-pointer outline-none transition"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-[#64748B]" strokeWidth={1.5} />
+                <span>Ganti Kata Sandi</span>
               </DropdownMenu.Item>
 
               <DropdownMenu.Separator className="h-px bg-[#F1F5F9] my-1" />

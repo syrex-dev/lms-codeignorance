@@ -54,7 +54,7 @@ class LocalStorageService implements StorageService {
     }
 
     const cleanTenantId = tenantId.trim().replace(/[^a-zA-Z0-9_-]/g, "_");
-    const targetFolder = path.join(this.uploadDir, cleanTenantId, subfolder);
+    const targetFolder = path.join(/*turbopackIgnore: true*/ this.uploadDir, cleanTenantId, subfolder);
     await fs.mkdir(targetFolder, { recursive: true });
 
     const timestamp = Date.now();
